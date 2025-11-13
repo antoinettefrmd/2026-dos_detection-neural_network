@@ -82,10 +82,29 @@ src : [https://youtu.be/Ymvq6JHjoBY?si=V_r70v-15jHunI85](https://youtu.be/Ymvq6J
 
 ## Support Vector Machine (SVM)
 
+algorithme de machine learning supervisé qui classifie les données en trouvant une ligne optimale ou un hyperplan qui maximise la distance entre chaque classe dans un espace à n dimensions. Cette distance est appelée marge, et les deux points qui sont sont sur cette marge, sont appelés vecteurs de support.
+
+Pour trouver ce plan/hyperplan, SVM a besoin d'un ensembles de coordonnées de points déjà associé à une catégorie.
+
+POINTS FORTS :
+
+- facile à comprendre, implémenter, interpreter
+- Bonne performance avec peu de données, robuste
+- Classification d’attaques connues (DoS, DDoS, port scan)
+
+POINTS FAIBLES :
+- les points ne sont pas toujours séparables facilement, il faut rajouter des paramètres
+- Difficile à étendre aux grands volumes, besoin de labels
+
+
+
+src : https://www.ibm.com/fr-fr/think/topics/support-vector-machine
+https://www.youtube.com/watch?v=_YPScrckx28
+
 ## Random Forest (RF)
+
+https://www.youtube.com/watch?v=QQN5NjJtUcc
 
 # Apprentissage sous semi-supervision
 
 ## Principal Component Analysis (PCA)
-
-![Capture d’écran du 2025-11-12 22-35-21.png](Algorithmes%20d%E2%80%99apprentissage/Capture_dcran_du_2025-11-12_22-35-21.png)
