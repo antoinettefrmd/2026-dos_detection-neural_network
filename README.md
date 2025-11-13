@@ -1,11 +1,12 @@
 # Proposition de projet - Algorithme intelligent de détection et de réaction automatique face aux cyberattaques dans un réseau local -
 
 ## Problématique
-Avec la constante croissance des échanges de données et la multiplication des systèmes connectés, la sécurité numérique est devenu un enjeu majeur au sein de notre société. En effet, selon le Service statistique ministériel de la sécurité intérieure, en 2023, on recensait 278 270 atteintes numériques, une hausse de 40% sur les cinq dernières années.
-Un des défi essentiel qui se pose est l'adaptalité face à l'évolution et la diversification des attaques.
-Ce projet propose de concevoir plusieurs algorithmes basé sur l'intelligence artificielle capable de détecter en 
-temps réel un comportement anormal sur un réseau, de protéger les données sensibles et de déclencher 
-une réponse defensive ou une contre-attaque. Nous créérons un agent intelligent capable de fabriquer un honney pot, gérer la maintenance et déclencher l'alerte en cas d'intrusion sur le réseau. 
+
+Avec la constante croissance des échanges de données et la multiplication des systèmes connectés, la sécurité numérique est devenu un enjeu majeur au sein de notre société. En effet, surveys montrent une estimative de que 72% des companies ont subid des attaques de ransomware entre 2018 et 2023 (Happe & Cito, 2025).
+Un des défis présents dans le champ de la sécurité informatique est la forte nécessité de la présence humaine dans l'analyse et la détection des anomalies sur le réseau, même avec la présence des modèles de LLM et techniques en LM.
+Ce projet propose de concevoir un analisateur des accèes autonome capable de détecter en 
+temps réel une anomalie sur un reseau local, ça veut dire un accèes unconnu un pattern ou un data point dedans le reseau avec une grande descrepancia de le comportement historiquement défini (Knetik 2025, VMware 2024), et de déclencher 
+une réponse defensive.
 
 ## Objective
 Le but du projet est de développer un système autonome de cybersécurité à base d'intelligence artificielle, capable de: 
