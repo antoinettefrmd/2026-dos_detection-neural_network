@@ -72,6 +72,14 @@ Novelty detection : le mécanisme par lequel un organisme intelligent est capabl
 
 est un algorithme proposé par Markus M. Breunig, Hans-Peter Kriegel, Raymond T. Ng et Jörg Sander en 2000 pour la recherche de points de données anormaux en mesurant l'écart local d'un point de données donné par rapport à ses voisins.
 
+## K-means Clustering
+
+Méthode d'apprentissage sans supervision pour data clustering, ce qui regroupe des data non marquées en des groupes ou clusters. K-Means Clustering est défini comme une méthode "dur" ou exclusive.
+
+K-Means est un algorithme interactif basé sur des centroids qui partitionne le dataset en groupes démêlant à partir de la distance entre ces centroids. (IBM, [https://www.ibm.com/think/topics/k-means-clustering])
+
+Clustering : répartion d'un dataset dans un groupe de K clusters pré-determiné. Ce calcul est fait par la minimization de la somme des les carrées entre les clusters (WCSS), aussi appelé inertia (Luo et al., [[2025](https://arxiv.org/html/2509.05936v1#S3)]) 
+
 ### Principe :
 
 Compare la densité locale d’un point à celle de ses voisins
