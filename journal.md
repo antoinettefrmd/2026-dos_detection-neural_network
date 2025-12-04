@@ -22,8 +22,18 @@ Anomaly : Deviation par rapport à un fonctionnement normal, échelonné sur des
 Metriques : fréquence, heure, adresse,... 
 
 TODO
-[] mettre les sources sur le git
-[] trouver ou est le problème algorithmique à résoudre, pas clair pour le moment, urgent 
+[x] mettre les sources sur le git
+[x] trouver ou est le problème algorithmique à résoudre, pas clair pour le moment, urgent 
 
 
+
+# 4/12/2025 Roupin
+
+Algo clair : descente de gradient
+Anomaly : définie par les labels, et on essaye de les detecter avec ses méthodes
+
+TODO
+[] Planning pour le temps de chaque étape
+[] Ça sert à quoi isolation forest ?
+[] Commencer à coder
 
