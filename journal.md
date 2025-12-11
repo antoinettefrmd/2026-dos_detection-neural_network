@@ -33,7 +33,22 @@ Algo clair : descente de gradient
 Anomaly : définie par les labels, et on essaye de les detecter avec ses méthodes
 
 TODO
-[] Planning pour le temps de chaque étape
-[] Ça sert à quoi isolation forest ?
+[X] Planning pour le temps de chaque étape
+[X] Ça sert à quoi isolation forest ?
 [] Commencer à coder
 
+
+# 11/12/2025 Bernardi
+
+Isolation forest sert à rien.
+The students decided to use a neural network (NN).
+The first NN that will be used consists of 
+1 layer of 8 neurons.
+
+
+TODO
+[ ] Define the structure of the neural network (i.e. how are the neurons connected)
+[ ] Define how you are going to compare the results of your NN with other algorithms
+[ ] Come back in January with a prototype of a neural network that must be trained
+	on half of the dataset that you have.
+[ ] Show us a demo.
