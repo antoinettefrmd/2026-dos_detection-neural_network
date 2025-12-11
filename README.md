@@ -47,5 +47,3 @@ Essais sur des logiciels type … pour entraîner la robustesse de notre réseau
 ## Test de sécurité
 
 Validation de la capacité du module de défense.
-
-gradient de f
