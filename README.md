@@ -1,4 +1,4 @@
-# Proposition de projet (révisé) - Algorithme autonome de détection d’anomalie basé sur des techniques de ML semi-supervisé et ensemble algorithmique -
+# Proposition de projet (révisée) - Algorithme autonome de détection d’anomalie basé sur des techniques de ML semi-supervisé et ensemble algorithmique -
 
 ## Problématique
 
@@ -46,16 +46,6 @@ Essais sur des logiciels type … pour entraîner la robustesse de notre réseau
 
 ## Test de sécurité
 
-Validation de la capacité du module de défense.  
-Test de vérification qu’aucune contre-mesure ne provoque d’effet secondaire indésirable sur le trafic.
-hyperparamètre taux d'apprentissage mesure et contrôle les sauts à effectuer dans la bonne direction pour ne pas aller trop loin
-On est censé le changer nous meme contrairment aux paramètres
-
-Qu’est-ce qu’une dérivée partielle ?
-
-Si une fonction dépend de plusieurs variables, par exemple :
-
-on peut étudier comment elle change par rapport à une seule variable, en gardant les autres constantes.
-le vecteur des dérivées partielles, autrement dit le :
+Validation de la capacité du module de défense.
 
 gradient de f
