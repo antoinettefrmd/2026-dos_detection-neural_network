@@ -1,7 +1,6 @@
 """
--> data clustering - define a arithimetic average of a data type.
--> n-clustering neighbor: after n interactions of clustering the algorithm should be able to define 
-an interval in which every data that falls outside is considered abnormal.
+Class Evaluation :
+
 """
 from collections import deque
 import numpy as np
@@ -24,7 +23,6 @@ class NetPerceptron:
         self.db = np.zeros(input_size)
         # memory - keeps track of previous data entry
         self.hist = {f: history.History() for f in fields}
-        
         # anomaly threshold
         self.retain_error = deque(maxlen=100000)
         self.threshold = None
@@ -45,14 +43,14 @@ class NetPerceptron:
                 
                 # DEBUG: Check for None values
                 if rate is None:
-                    print(f"WARNING: rate is None for field={field}, value={value}")
                     rate = 0.0
+                #    print(f"WARNING: rate is None for field={field}, value={value}")
                 if etrp is None:
-                    print(f"WARNING: entropy is None for field={field}")
                     etrp = 0.0
+                #    print(f"WARNING: entropy is None for field={field}")
                 if recy is None:
-                    print(f"WARNING: recency is None for field={field}, value={value}")
                     recy = 0.0
+                #    print(f"WARNING: recency is None for field={field}, value={value}")
 
                 feature.append(rate)
                 feature.append(etrp)
@@ -63,16 +61,15 @@ class NetPerceptron:
                 feature.extend([0.0, 0.0, 0.0])
                 
         # DEBUG: Final check
-        print(f"Feature list before array conversion: {feature}")
+        #print(f"Feature list before array conversion: {feature}")
         
         feature_array = np.array(feature, dtype=np.float64)
         # DEBUG: Check for problems in the array
         
         if np.any(np.isnan(feature_array)):
             print(f"WARNING: NaN detected in feature array!")
-            feature_array = np.nan_to_num(feature_array, nan=0.0)
     
-        print(f"Final feature array: {feature_array}")
+        #print(f"Final feature array: {feature_array}")
         return feature_array
     
     def set_threshold(self, percentile=95):
@@ -152,7 +149,7 @@ if __name__ == "__main__":
     # Séparer en 4 quarts
     quart = len(df) // 4
     i = 0
-    test = 100
+    checkpoint = [100, 1000, 1500, 2000, 5000]
     # 1er quart pour l'entraînement
     df_train = df.iloc[:quart]
     print("fedding the machine ...")
@@ -160,9 +157,8 @@ if __name__ == "__main__":
         i += 1
         message_input = {field : data[field] for field in fields}
         loss = detector.training_steps(message_input)
-        if i == test :
-            print(f'loss state: {loss}')
-            test *= 50
+        if i in checkpoint :
+            print(f'loss state: {loss:.6f}')
     detector.set_threshold()
     
     # 2ème quart pour le test
