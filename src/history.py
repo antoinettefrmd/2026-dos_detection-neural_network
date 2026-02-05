@@ -9,8 +9,12 @@ import numpy as np
 class History:
     def __init__(self):
         self.max_size = 500000
-        self.window = deque(maxlen=self.max_size)    # history keeps all the previous values of data entries, for an certain data value of the socket
+        # history keeps all the previous values of data entries, for an certain data value of the socket
+        self.window = deque(maxlen=self.max_size)
         self.count = Counter()
+        # keep track of adress that were flaged as malicius
+        self.bad_addres = deque(maxlen=self.max_size)
+        self.count_bad = Counter()
         self.hidden_entropy = None
         self.entropy_review = True # define if entropy needs to be recalculated
         self.last_seen = {}
@@ -41,6 +45,36 @@ class History:
         
         normalized = (log_rate + 6) / 6
         return np.clip(normalized, 0.0, 1.0)
+    
+    # returns the data type with the highest rate
+    def get_max_rate(self):
+        max_rate = 0
+        max_value = None
+        for d in self.window:
+            v = self.avg_rate(d)
+            if v > max_rate:
+                max_rate = v
+                max_value = d            
+        return max_value, max_rate
+    
+    def get_window(self):
+        return self.window
+    
+    def values(self):
+        """Return the count values (makes History compatible with dict-like operations)"""
+        return self.count.values()
+
+    def items(self):
+        """Return (value, count) pairs"""
+        return self.count.items()
+
+    def keys(self):
+        """Return all unique values seen"""
+        return self.count.keys()
+
+    def get(self, key, default=None):
+        """Get count for a specific value"""
+        return self.count.get(key, default)
     
     def get_entropy(self):
         if len(self.window) == 0: return 0.0
