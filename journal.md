@@ -59,11 +59,16 @@ TODO
 
 
 TODO
-[ ] Plan clair et précis de ce que vous voulez faire et pourquoi 
-[ ] Journal de votre avancée 
+[x] Plan clair et précis de ce que vous voulez faire et pourquoi 
+[x] Journal de votre avancée 
 
 
  
+# 06/02/2026 Roupin
+
+
+TODO
+[ ] S'assurer que votre algo de descente est correcte avant de prendre du temps sur le reste 
 
 
 
