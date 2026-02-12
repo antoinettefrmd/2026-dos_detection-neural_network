@@ -77,13 +77,25 @@ class Neuron:
         loss = self.log_loss(model=model, label=label)
         prediction = self.predict_anomaly(loss)
         return np.mean(prediction == label.astype(bool))
+    
+# reduit de façon exponentielle le taux d'apprendisage a partir du numéro d'iterations
+def decaying_lr(learning_rate, iteration, decay_rate=0.95, decay_steps=100):
+    return learning_rate * (decay_rate ** (iteration // decay_steps))
 
-def slice_per_time(data, time) :
-    mask = ((data['stime'] >= time) & (data['stime'] <= time + 500))
-    df_ret = data[mask].copy()
-    return df_ret, time + 500
+def slice_per_time(df, time, time_window=500, min_sockets=1) :
+    mask = ((df['stime'] >= time) & (df['stime'] <= time + time_window))
+    df_ret = df[mask].copy()
+    
+    # on agument la fênetre de temps autant que que notre liste des données soient vide
+    while len(df_ret) < min_sockets and time < df['stime'].max():
+        time += time_window
+        mask = ((df['stime'] >= time) & (df['stime'] <= time + time_window))
+        df_ret = df[mask].copy()
+    
+    return df_ret, (time + time_window)
 
 def encoded(df):
+    df = df.copy()
     for col in df:
         if col == 'saddr' or col == 'daddr':
             le = LabelEncoder()
@@ -100,22 +112,31 @@ if __name__ == '__main__' :
     df_quart = df.iloc[:quart]
     
     # Création du neuron
-    neuron = Neuron(13, 0.5)
+    learning_rate=0.01
+    neuron = Neuron(13, learning_rate)
 
+    all_data = []
     # Premier temps de la base de donnée pour savoir où on commence
-    first_time = df_quart["stime"][1]
-    
-    df_train, first_time = slice_per_time(df_quart, first_time) # récupération du flux par tranche de 3 minutes
+    first_time = df_quart["stime"][0]
 
-    i = 0
-    rest = len(df_quart)
-    while len(df_train) > 0 :
-        x_train = np.array(df_train.iloc[:,:-1]) # Sélection des flags approprié
-        y_train = np.array(df_train.iloc[:,-1]) # colonne des tag 
-        for j in range(50):
-            log = neuron.train_step(x_train,y_train) #entrainement par tranche
-            if (j%10 == 0): print(f"loss precision in {i},{j}: {log:.4f}")
-            neuron.lr /= 1.5 # ajustement du learning rate
-            df_train, first_time = slice_per_time(df_quart, first_time) # récupération du flux par tranche de 3 minutes
+    while True :
+        df_train, first_time = slice_per_time(df_quart, first_time, time_window=50) # récupération du flux par tranche de 3 minutes
+        if len(df_train) == 0: break
+        all_data.append(df_train)
+        
+        num_epoch = 10
+        for epoch in range(num_epoch):
+            epoch_losses = []
+            
+            # randomize les paquets par iterations (creer de imprevisibilité)
+            np.random.shuffle(all_data)
+            
+            for i, data in enumerate(all_data):
+                x_train = np.array(df_train.iloc[:,:-1]) # Sélection des flags approprié
+                y_train = np.array(df_train.iloc[:,-1]) # colonne des tag
 
-        i+=1
+                loss = neuron.train_step(x_train, y_train)
+                epoch_losses.append(loss)
+                
+                if i%10==0:
+                    print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\n\tloss: {loss:.6f}")
