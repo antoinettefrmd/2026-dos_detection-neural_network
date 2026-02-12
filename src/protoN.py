@@ -83,13 +83,13 @@ def decaying_lr(learning_rate, iteration, decay_rate=0.95, decay_steps=100):
     return learning_rate * (decay_rate ** (iteration // decay_steps))
 
 def slice_per_time(df, time, time_window=500, min_sockets=1) :
-    mask = ((df['stime'] >= time) & (df['stime'] <= time + time_window))
+    mask = ((df['dt'] >= time) & (df['dt'] <= time + time_window))
     df_ret = df[mask].copy()
     
     # on agument la fênetre de temps autant que que notre liste des données soient vide
-    while len(df_ret) < min_sockets and time < df['stime'].max():
+    while len(df_ret) < min_sockets and time < df['dt'].max():
         time += time_window
-        mask = ((df['stime'] >= time) & (df['stime'] <= time + time_window))
+        mask = ((df['dt'] >= time) & (df['dt'] <= time + time_window))
         df_ret = df[mask].copy()
     
     return df_ret, (time + time_window)
@@ -103,10 +103,9 @@ def encoded(df):
     return df
 
 if __name__ == '__main__' :
-    df = pd.read_csv("../databaseDoS.csv")
+    df = pd.read_csv("../dataset_sdn.csv")
     # Récupération de la bdd dans df
     df = encoded(df)
-    
     # Sélection du premier quart pour l'entrainement
     quart = len(df) // 4
     df_quart = df.iloc[:quart]
@@ -117,26 +116,27 @@ if __name__ == '__main__' :
 
     all_data = []
     # Premier temps de la base de donnée pour savoir où on commence
-    first_time = df_quart["stime"][0]
+    first_time = df_quart["dt"][0]
 
     while True :
         df_train, first_time = slice_per_time(df_quart, first_time, time_window=50) # récupération du flux par tranche de 3 minutes
         if len(df_train) == 0: break
         all_data.append(df_train)
-        
+
         num_epoch = 10
         for epoch in range(num_epoch):
             epoch_losses = []
             
             # randomize les paquets par iterations (creer de imprevisibilité)
-            np.random.shuffle(all_data)
+            # np.random.shuffle(all_data)
             
             for i, data in enumerate(all_data):
-                x_train = np.array(df_train.iloc[:,:-1]) # Sélection des flags approprié
-                y_train = np.array(df_train.iloc[:,-1]) # colonne des tag
+                x_train = np.array(data.iloc[:,:-1]) # Sélection des flags approprié
+                y_train = np.array(data.iloc[:,-1]) # colonne des tag
 
-                loss = neuron.train_step(x_train, y_train)
-                epoch_losses.append(loss)
+                # loss = neuron.train_step(x_train, y_train)
+                # epoch_losses.append(loss)
                 
                 if i%10==0:
-                    print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\n\tloss: {loss:.6f}")
+                    # print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\n\tloss: {loss:.6f}")
+                    print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\n\t")
