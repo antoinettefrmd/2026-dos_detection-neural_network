@@ -62,15 +62,19 @@ TODO
 [x] Plan clair et précis de ce que vous voulez faire et pourquoi 
 [x] Journal de votre avancée 
 
-
  
 # 06/02/2026 Roupin
 
 
 TODO
-[ ] S'assurer que votre algo de descente est correcte avant de prendre du temps sur le reste 
+[x] S'assurer que votre algo de descente est correcte avant de prendre du temps sur le reste 
 
+ 
+# 13/02/2026 Roupin
 
+TODO
+[x] Bien justifier vos choix à l'écrit quelque part
+[ ] Faire des choix pertinents et justifiés pour vos données en entrée
 
 
 
