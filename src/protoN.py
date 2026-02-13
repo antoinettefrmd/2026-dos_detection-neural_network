@@ -1,12 +1,11 @@
-from sklearn.preprocessing import LabelEncoder
 import numpy as np
-import pandas as pd
-
 class Neuron:
     def __init__(self, input_size, learnig_rate=0.01):
         self.lr = learnig_rate
         self.W = np.random.randn(input_size, 1) * 0.1
         self.b = 0
+        self.mean = None
+        self.std = None
         self.ret_loss = []
         self.anomaly_threshold = None
         
@@ -54,11 +53,17 @@ class Neuron:
             self.set_threshold()
         return loss > self.anomaly_threshold
     
+    def normalize(self, input_train):
+        self.mean = np.mean(input_train, axis=0)
+        self.std = np.std(input_train, axis=0)
+        return (input_train - self.mean) / (self.std + 1e-8)
+    
     # fonction principal d'entrainement du perceptron;
     # prends comment argument une fonction, la donnée à être evalué, 
     # et applique la prediction aux ensemble des données convertis par la fonction
     def train_step(self, input, label, function=None):
         data = function(input) if function != None else input
+        data = self.normalize(data)
         model = self.model(data)
         
         # calcule la divergence du clacule
@@ -75,106 +80,9 @@ class Neuron:
     # retourne si le donnée est une anomalie et quant distant il est de la normalité
     def score_test(self, input, label, function=None):
         data = function(input) if function != None else input
+        data = self.normalize(data)
         model = self.model(data)
         
         loss = self.log_loss(model=model, label=label)
         prediction = self.predict_anomaly(loss)
-        return np.mean(prediction == label.astype(bool))
-    
-# reduit de façon exponentielle le taux d'apprendisage a partir du numéro d'iterations
-def decaying_lr(learning_rate, iteration, decay_rate=0.95, decay_steps=100):
-    return learning_rate * (decay_rate ** (iteration // decay_steps))
-
-def slice_per_time(df, time, time_window=500, min_sockets=1) :
-    mask = ((df['stime'] >= time) & (df['stime'] <= time + time_window))
-    df_ret = df[mask].copy()
-    
-    # on agument la fênetre de temps autant que que notre liste des données soient vide
-    while len(df_ret) < min_sockets and time < df['stime'].max():
-        time += time_window
-        mask = ((df['stime'] >= time) & (df['stime'] <= time + time_window))
-        df_ret = df[mask].copy()
-    
-    return df_ret, (time + time_window)
-
-def encoded(df):
-    df = df.copy()
-    for col in df:
-        if col == 'saddr' or col == 'daddr':
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col].astype(str))
-    return df
-
-def eval_data(df):
-    # CHECK LABEL DISTRIBUTION
-    print("="*60)
-    print("DATA DISTRIBUTION CHECK")
-    print("="*60)
-    
-    # Assuming last column is the label (0=normal, 1=attack)
-    label_counts = df.iloc[:, -1].value_counts()
-    print(f"\nLabel distribution:")
-    print(label_counts)
-    print(f"\nPercentages:")
-    print(label_counts / len(df) * 100)
-    
-    total = len(df)
-    class_0 = (df.iloc[:, -1] == 0).sum()
-    class_1 = (df.iloc[:, -1] == 1).sum()
-    
-    print(f"\nClass 0 (normal): {class_0} ({class_0/total*100:.2f}%)")
-    print(f"Class 1 (attack): {class_1} ({class_1/total*100:.2f}%)")
-    
-    imbalance_ratio = max(class_0, class_1) / min(class_0, class_1)
-    print(f"\nImbalance ratio: {imbalance_ratio:.2f}:1")
-    
-    if imbalance_ratio > 10:
-        print("⚠️  WARNING: Severe class imbalance detected!")
-        print("   Your model may learn to always predict the majority class.")
-    
-    print("="*60)
-
-if __name__ == '__main__' :
-    df = pd.read_csv("../databaseDoS.csv")
-    # Récupération de la bdd dans df
-    df = encoded(df)
-    
-    eval_data(df)
-
-    # Sélection du premier quart pour l'entrainement
-    quart = len(df) // 4
-    df_quart = df.iloc[:quart]
-    
-    # Création du neuron
-    learning_rate=0.01
-    neuron = Neuron(13, learning_rate)
-
-    all_data = []
-    # Premier temps de la base de donnée pour savoir où on commence
-    first_time = df_quart["stime"][0]
-
-    while True :
-        df_train, first_time = slice_per_time(df_quart, first_time, time_window=50) # récupération du flux par tranche de 3 minutes
-        if len(df_train) == 0: break
-        all_data.append(df_train)
-        
-        num_epoch = 5
-        for epoch in range(num_epoch):
-            epoch_losses = []
-            
-            # randomize les paquets par iterations (creer de imprevisibilité)
-            np.random.shuffle(all_data)
-    
-            for i, df_data in enumerate(all_data):
-                x_train = np.array(df_data.iloc[:,:-1]) # Sélection des flags approprié
-                y_train = np.array(df_data.iloc[:,-1]) # colonne des tag
-
-                loss = neuron.train_step(x_train, y_train)
-                epoch_losses.append(loss)
-                
-                if i%10==0:
-                    prediction = (neuron.model(x_train) > 0.5).astype(int).flatten()
-                    accuracy = np.mean(prediction == y_train)
-                    print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\nloss: {loss:.6f}, accuracy: {accuracy:.4f}")
-            avg_loss=np.mean(epoch_losses)
-            print(f"===Iteration {epoch+1} completed: average loss - {avg_loss:.6f}===")
+        return loss, prediction
