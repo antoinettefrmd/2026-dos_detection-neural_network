@@ -37,6 +37,9 @@ class Neuron:
         return dW, db
     
     def update(self, dW, db):
+        max_grad = 5.0
+        dW = np.clip(dW, -max_grad, max_grad)
+        db = np.clip(db, -max_grad, max_grad)
         self.W -= self.lr * dW
         self.b -= self.lr * db
     
@@ -102,10 +105,42 @@ def encoded(df):
             df[col] = le.fit_transform(df[col].astype(str))
     return df
 
+def eval_data(df):
+    # CHECK LABEL DISTRIBUTION
+    print("="*60)
+    print("DATA DISTRIBUTION CHECK")
+    print("="*60)
+    
+    # Assuming last column is the label (0=normal, 1=attack)
+    label_counts = df.iloc[:, -1].value_counts()
+    print(f"\nLabel distribution:")
+    print(label_counts)
+    print(f"\nPercentages:")
+    print(label_counts / len(df) * 100)
+    
+    total = len(df)
+    class_0 = (df.iloc[:, -1] == 0).sum()
+    class_1 = (df.iloc[:, -1] == 1).sum()
+    
+    print(f"\nClass 0 (normal): {class_0} ({class_0/total*100:.2f}%)")
+    print(f"Class 1 (attack): {class_1} ({class_1/total*100:.2f}%)")
+    
+    imbalance_ratio = max(class_0, class_1) / min(class_0, class_1)
+    print(f"\nImbalance ratio: {imbalance_ratio:.2f}:1")
+    
+    if imbalance_ratio > 10:
+        print(" WARNING: Severe class imbalance detected!")
+        print("   Your model may learn to always predict the majority class.")
+    
+    print("="*60)
+
 if __name__ == '__main__' :
     df = pd.read_csv("../dataset_sdn.csv")
     # Récupération de la bdd dans df
     df = encoded(df)
+    
+    eval_data(df)
+
     # Sélection du premier quart pour l'entrainement
     quart = len(df) // 4
     df_quart = df.iloc[:quart]
@@ -122,21 +157,24 @@ if __name__ == '__main__' :
         df_train, first_time = slice_per_time(df_quart, first_time, time_window=50) # récupération du flux par tranche de 3 minutes
         if len(df_train) == 0: break
         all_data.append(df_train)
-
-        num_epoch = 10
+        
+        num_epoch = 5
         for epoch in range(num_epoch):
             epoch_losses = []
             
             # randomize les paquets par iterations (creer de imprevisibilité)
             # np.random.shuffle(all_data)
-            
-            for i, data in enumerate(all_data):
-                x_train = np.array(data.iloc[:,:-1]) # Sélection des flags approprié
-                y_train = np.array(data.iloc[:,-1]) # colonne des tag
+    
+            for i, df_data in enumerate(all_data):
+                x_train = np.array(df_data.iloc[:,:-1]) # Sélection des flags approprié
+                y_train = np.array(df_data.iloc[:,-1]) # colonne des tag
 
                 # loss = neuron.train_step(x_train, y_train)
                 # epoch_losses.append(loss)
                 
                 if i%10==0:
-                    # print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\n\tloss: {loss:.6f}")
-                    print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\n\t")
+            #         prediction = (neuron.model(x_train) > 0.5).astype(int).flatten()
+            #         accuracy = np.mean(prediction == y_train)
+            #         print(f"Iteration {epoch+1} de {num_epoch}, Paquet {i} de {len(all_data)}:\nloss: {loss:.6f}, accuracy: {accuracy:.4f}")
+            # avg_loss=np.mean(epoch_losses)
+            # print(f"===Iteration {epoch+1} completed: average loss - {avg_loss:.6f}===")
