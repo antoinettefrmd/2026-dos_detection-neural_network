@@ -14,7 +14,8 @@ class Neuron:
     
     #calcule la fonction d'activation dans le reseau
     def model(self, entry):
-        z = entry.dot(self.W) + self.b
+        z = entry.dot(self.W)
+        z += self.b
         return self.sigmoid(z)
 
     
@@ -25,7 +26,7 @@ class Neuron:
         s = len(y)
         epsilon = 1e-15 
         model = np.clip(model, epsilon, 1-epsilon)
-        return  1/s * np.sum(-y * np.log(model) - (1-y) * np.log(1-model))
+        return 1/s * np.sum(-y * np.log(model) - (1-y) * np.log(1-model))
     
     # mesure et optimise les futures calcules
     def gradient(self, model, data, label):
@@ -51,7 +52,14 @@ class Neuron:
     def predict_anomaly(self, loss):
         if self.anomaly_threshold is None:
             self.set_threshold()
-        return loss > self.anomaly_threshold
+        #print("="*60)
+        #print("Threshold Test")
+        #print("="*60)
+        #anomaly_c = self.anomaly_threshold*100 if self.anomaly_threshold != None else 0
+        #print(f"model percentage: {(loss*100):.4f}%\n"
+        #      f"threshold percentage: {anomaly_c:.4f}%")
+        #print("="*25 + "End Test" + "="*25)
+        return loss >= self.anomaly_threshold
     
     def normalize(self, input_train):
         self.mean = np.mean(input_train, axis=0)
@@ -63,7 +71,9 @@ class Neuron:
     # et applique la prediction aux ensemble des données convertis par la fonction
     def train_step(self, input, label, function=None):
         data = function(input) if function != None else input
+        
         data = self.normalize(data)
+        
         model = self.model(data)
         
         # calcule la divergence du clacule
@@ -84,5 +94,5 @@ class Neuron:
         model = self.model(data)
         
         loss = self.log_loss(model=model, label=label)
-        prediction = self.predict_anomaly(loss)
+        prediction = self.predict_anomaly(model)
         return loss, prediction

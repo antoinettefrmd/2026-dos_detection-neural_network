@@ -53,6 +53,20 @@ class History_analyzer:
         if total == 0 : return {}
         return {key: count/total for key, count in histogram.items()}
     
+    def get_max_per_attrb(self, attrb, hist_dict):
+        max_value, max_rate, max_type = None, 0, None
+        for field, hist in hist_dict.items():
+            rates = self.calculate_rates(hist)
+            if rates and field == attrb:
+                if len(rates) > 0:
+                    field_max_value, field_max_rate = max(rates.items(), key=lambda x: x[1])
+                
+                    if field_max_rate > max_rate:
+                        max_type = field
+                        max_rate = field_max_rate
+                        max_value = field_max_value
+        return max_type, max_value, max_rate
+    
     def get_max_rate_attrb(self, hist_dict):
         max_value, max_rate, max_type = None, 0, None
         for field, hist in hist_dict.items():
@@ -88,16 +102,15 @@ class History_analyzer:
     def generate_reports(self, df):
         """Generate statistical reports"""
         # Overall rates
-        print("\n" + "="*60)
-        print("OVERALL ATTRIBUTE RATES (Mixed Data)")
-        print("="*60)
-        for field in self.fields:
-            rates = self.calculate_rates(self.message_input[field])
-            print(f"\n{field}:")
-            sorted_rates = sorted(rates.items(), key=lambda x: x[1], reverse=True)[:5]
-            for value, rate in sorted_rates:
-                print(f"  {value}: {rate:.4f} ({rate*100:.2f}%)")
-        
+        #print("\n" + "="*60)
+        #print("OVERALL ATTRIBUTE RATES (Mixed Data)")
+        #print("="*60)
+        #for field in self.fields:
+        #    rates = self.calculate_rates(self.message_input[field])
+        #    print(f"\n{field}:")
+        #    sorted_rates = sorted(rates.items(), key=lambda x: x[1], reverse=True)[:5]
+        #    for value, rate in sorted_rates:
+        #        print(f"  {value}: {rate:.4f} ({rate*100:.2f}%)")
         
         print("\n" + "="*60)
         print("OVERALL ATTRIBUTE RATES (Common behavior)")
@@ -109,23 +122,55 @@ class History_analyzer:
             for value, rate in sorted_rates:
                 print(f"  {value}: {rate:.4f} ({rate*100:.2f}%)")
         
-        # Find max rate attribute
-        max_field, max_value, max_rate = self.get_max_rate_attrb(self.message_input)
-        print(f"\n" + "="*60)
-        print(f"HIGHEST RATE ATTRIBUTE")
+        print("\n" + "="*60)
+        print("OVERALL ATTRIBUTE RATES (Anomaly behavior)")
         print("="*60)
-        print(f"Field: {max_field}")
-        print(f"Value: {max_value}")
-        print(f"Rate: {max_rate:.4f} ({max_rate*100:.2f}%)")
+        for field in self.fields:
+            rates = self.calculate_rates(self.tagged_one[field])
+            print(f"\n{field}:")
+            sorted_rates = sorted(rates.items(), key=lambda x: x[1], reverse=True)[:5]
+            for value, rate in sorted_rates:
+                print(f"  {value}: {rate:.4f} ({rate*100:.2f}%)")
+        
+        # Find max rate attribute
+        #max_field, max_value, max_rate = self.get_max_rate_attrb(self.message_input)
+        max_field_z, max_value_z, max_rate_z = self.get_max_per_attrb("dur", self.tagged_z) 
+        print(f"\n" + "="*60)
+        #print(f"HIGHEST RATE ATTRIBUTE")
+        print(f"Duration RATE ATTRIBUTE (Normal behavior)")
+        print("="*60)
+        print(f"Field: {max_field_z}")
+        print(f"Value: {max_value_z}")
+        print(f"Rate: {max_rate_z:.4f} ({max_rate_z*100:.2f}%)")
+        
+        # Find max rate attribute
+        #max_field, max_value, max_rate = self.get_max_rate_attrb(self.message_input)
+        max_field_o, max_value_o, max_rate_o = self.get_max_per_attrb("dur", self.tagged_one) 
+        print(f"\n" + "="*60)
+        #print(f"HIGHEST RATE ATTRIBUTE")
+        print(f"Duration RATE ATTRIBUTE (Anomaly behavior)")
+        print("="*60)
+        print(f"Field: {max_field_o}")
+        print(f"Value: {max_value_o}")
+        print(f"Rate: {max_rate_o:.4f} ({max_rate_o*100:.2f}%)")
         
         # Conditional averages
         print(f"\n" + "="*60)
-        print(f"CONDITIONAL AVERAGES (when {max_field} = {max_value})")
+        print(f"CONDITIONAL AVERAGES (when {max_field_z} = {max_value_z})")
         print("="*60)
-        cond_avgs = self.calculate_condt_avg(df, max_field, max_value)
+        cond_avgs = self.calculate_condt_avg(df, max_field_z, max_value_z)
         for field in sorted(cond_avgs.keys()):
             print(f"\n{field}:")
-            print(f" Avg: {cond_avgs[field]:.4f}")
+            print(f" Avg: {cond_avgs[field]:.4f} ({cond_avgs[field]*100:.2f}%)")
+        
+        # Conditional averages
+        print(f"\n" + "="*60)
+        print(f"CONDITIONAL AVERAGES (when {max_field_o} = {max_value_o})")
+        print("="*60)
+        cond_avgs = self.calculate_condt_avg(df, max_field_o, max_value_o)
+        for field in sorted(cond_avgs.keys()):
+            print(f"\n{field}:")
+            print(f" Avg: {cond_avgs[field]:.4f} ({cond_avgs[field]*100:.2f}%)")
         
         # Tag-specific analysis
         for tag in [0, 1]:
@@ -139,7 +184,7 @@ class History_analyzer:
             print(f"Value: {tag_max_value}")
             print(f"Rate: {tag_max_rate:.4f} ({tag_max_rate*100:.2f}%)")
         
-        return max_field, max_value, max_rate, cond_avgs
+        return max_field_z, max_value_z, max_rate_z, cond_avgs
     
     def plot_analytics(self, df, max_field, max_value):
         """Generate analytical plots"""
