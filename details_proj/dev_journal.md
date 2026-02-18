@@ -19,3 +19,8 @@ dans le prémiers tests, la précision de perte descendait drasticament de 34% �
 Le binôme a arrivé sur deux possible hypotèses d'origine de cette error:
     1. mauvais application de la fonction d'évaluation d'entropie (log_loss);
     2. partition incorrect ou problème sur l'envoie des data.
+À la fin le source de l'error était:
+    1. Descente de la curbe d'apprentissage aggresive, à chaque dix itérations le code divisait la courbe d'apprentisage par 2, au but de 60
+    itérations la valeur de la courbe était tellement petit que le resultat rombé a zéro.
+        Solution : le bînome a changé la courbe d'apprentissage a une fonction dynamique en function du numéro d'iterations;
+    2.
