@@ -44,14 +44,13 @@ def verify_type(df):
     return object_type
 
 
+# Load CSV, encode, split into quarters, slice into time-windowed batches.
+# Returns:
+#     train_batches: list of DataFrames (training mini-batches)
+#     test_batches: list of DataFrames (test mini-batches)
+#     input_size: int (total number of columns including label)
+    
 def prepare_data(csv_path, time_window=50):
-    """Load CSV, encode, split into quarters, slice into time-windowed batches.
-
-    Returns:
-        train_batches: list of DataFrames (training mini-batches)
-        test_batches: list of DataFrames (test mini-batches)
-        input_size: int (total number of columns including label)
-    """
 
     df = pd.read_csv(csv_path)
     cols_dec = verify_type(df)
@@ -82,15 +81,7 @@ def run_training(train_batches, test_batches, input_size,
                  decay_steps=100, threshold_percentile=0.95,
                  on_batch=None, on_epoch=None, on_test_batch=None,
                  on_done=None, should_stop=None):
-    """Run training loop with optional callbacks for GUI/logging.
 
-    Callbacks:
-        on_batch(epoch, batch_idx, total_batches, loss, accuracy)
-        on_epoch(epoch, avg_loss, avg_accuracy)
-        on_test_batch(batch_idx, total_batches, loss, accuracy)
-        on_done(test_avg_loss, test_avg_accuracy)
-        should_stop() -> bool
-    """
     # input_size - 2: subtract label column AND dt column
     neuron = Neuron(input_size - 2, learning_rate)
     iterations = 0
@@ -128,7 +119,6 @@ def run_training(train_batches, test_batches, input_size,
             if on_batch:
                 on_batch(epoch, i, len(train_batches), loss, accuracy)
 
-        neuron.set_threshold(threshold_percentile)
         avg_loss = np.mean(epoch_losses)
         avg_accu = np.mean(epoch_accurancy)
 

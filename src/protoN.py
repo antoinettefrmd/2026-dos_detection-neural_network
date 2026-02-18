@@ -41,31 +41,14 @@ class Neuron:
         dW = np.clip(dW, -max_grad, max_grad)
         db = np.clip(db, -max_grad, max_grad)
         self.W -= self.lr * dW
-        self.b -= self.lr * db
-    
-    # Met à jour le threshold en fonction de la fct perte
-    def set_threshold(self, percent=0.95):
-        if len(self.ret_loss) > 0:
-            self.anomaly_threshold = np.percentile(list(self.ret_loss), percent * 100)
-    
-    # retourne si le depasse le seuil
-    def predict_anomaly(self, loss):
-        if self.anomaly_threshold is None:
-            self.set_threshold()
-        #print("="*60)
-        #print("Threshold Test")
-        #print("="*60)
-        #anomaly_c = self.anomaly_threshold*100 if self.anomaly_threshold != None else 0
-        #print(f"model percentage: {(loss*100):.4f}%\n"
-        #      f"threshold percentage: {anomaly_c:.4f}%")
-        #print("="*25 + "End Test" + "="*25)
-        return loss >= self.anomaly_threshold
-    
+        self.b -= self.lr * db 
+
+    # Normalise toutes les données avant le trainnig pour qu'elle ait plus de sens   
     def fit_normalize(self, X_all):
-        """Compute normalization stats from full training data. Call once before training."""
         self.mean = np.mean(X_all, axis=0)
         self.std = np.std(X_all, axis=0)
-
+    
+    # Normalise les données en urgence si ce n'est pas déjà fait ! En vrai à enlever
     def normalize(self, input_train):
         if self.mean is None or self.std is None:
             self.mean = np.mean(input_train, axis=0)
@@ -94,15 +77,7 @@ class Neuron:
     
     # Cet fonction evalue une donnée passée comment entrée converti par le parametre function
     # retourne si le donnée est une anomalie et quant distant il est de la normalité
-    def score_test(self, input, label, function=None):
-        data = function(input) if function != None else input
-        data = self.normalize(data)
-        model = self.model(data)
-        
-        loss = self.log_loss(model=model, label=label)
-        prediction = self.predict_anomaly(model)
-        return loss, prediction
-    
+   
     def score_test(self, input, label, function=None):
         data = function(input) if function != None else input
         data = self.normalize(data)
