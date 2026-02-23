@@ -48,7 +48,7 @@ class Neuron:
         self.mean = np.mean(X_all, axis=0)
         self.std = np.std(X_all, axis=0)
     
-    # Normalise les données en urgence si ce n'est pas déjà fait ! En vrai à enlever
+    # Normalise les données en urgence si ce n'est pas déjà fait !
     def normalize(self, input_train):
         if self.mean is None or self.std is None:
             self.mean = np.mean(input_train, axis=0)

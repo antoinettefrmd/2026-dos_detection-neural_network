@@ -3,11 +3,11 @@ from protoN import Neuron
 import numpy as np
 import pandas as pd
 
-# reduit de façon expaonentielle le taux d'apprendisage a partir du nombre d'iterations
+# reduit de façon exponentielle le taux d'apprentissage a partir du nombre d'iterations
 def decaying_lr(learning_rate, iteration, decay_rate=0.95, decay_steps=100):
     return learning_rate * (decay_rate ** (iteration // decay_steps))
 
-
+# Sépare les données par tranche de temps
 def slice_per_time(df, time, time_window=500, min_sockets=1) :
     mask = ((df['dt'] >= time) & (df['dt'] <= time + time_window))
     df_ret = df[mask].copy()
@@ -20,7 +20,7 @@ def slice_per_time(df, time, time_window=500, min_sockets=1) :
     
     return df_ret, (time + time_window)
 
-
+# encode les données
 def encoded(df, cols_dec):
     df = df.copy()
     df = df.fillna(0)
@@ -31,7 +31,7 @@ def encoded(df, cols_dec):
                 df[col] = le.fit_transform(df[col].astype(str))
     return df
  
-    
+# fonction de debuggage qui verifie si le type d'une col est objet pour pourvoir le changer
 def verify_type(df):
     object_type = []
     for col in df.columns:
@@ -44,66 +44,78 @@ def verify_type(df):
     return object_type
 
 
-# Load CSV, encode, split into quarters, slice into time-windowed batches.
-# Returns:
-#     train_batches: list of DataFrames (training mini-batches)
-#     test_batches: list of DataFrames (test mini-batches)
-#     input_size: int (total number of columns including label)
-    
+
+# Préparation des données :
+    # Téléchargement; Encodage des données dont le type est objet
+    # On jette les colonnes qui ont des valeurs aléatoires et donc ininterressantes pour l'apprentissage 
+    # Mélange des données pour éviter bias temporel
+
+    # Répartition en deux blocs, un d'entrainement de 75% des données et un autre de test 25% 
 def prepare_data(csv_path, time_window=50):
 
     df = pd.read_csv(csv_path)
     cols_dec = verify_type(df)
     df_copy = encoded(df, cols_dec)
-    # Drop IP columns — LabelEncoder creates fake ordinal relationships
+
     df_copy = df_copy.drop(columns=['sourceIP', 'destinationIP'])
     size_input = len(df_copy.columns)
-
-    # Shuffle rows before splitting to avoid temporal distribution bias
+    
+    # Mélange et reindexation des données
     df_copy = df_copy.sample(frac=1, random_state=42).reset_index(drop=True)
 
     split = int(len(df_copy) * 0.75)
 
-    # Training data: 75% (random batches since data is shuffled)
-    df_quart = df_copy.iloc[:split]
-    batch_size = max(1, len(df_quart) // 200)  # ~200 batches
-    train_batches = [df_quart.iloc[i:i+batch_size] for i in range(0, len(df_quart), batch_size)]
+    # Entrainement sur 75% des données 
+    df_train = df_copy.iloc[:split]
+    batch_size = max(1, len(df_train) // 200)  # ~200 batches
+    train_batches = [df_train.iloc[i:i+batch_size] for i in range(0, len(df_train), batch_size)]
 
-    # Test data: 25%
+    # Test sur 25% des données
     df_test = df_copy.iloc[split:]
     test_batches = [df_test.iloc[i:i+batch_size] for i in range(0, len(df_test), batch_size)]
 
     return train_batches, test_batches, size_input
 
+# Entrainement et test de notre réseau de neuronnes 
+# Arguments : 
+# données d'entrainement et de test
+# nb d'entrée de notre réseau 
+# nb d'itération sur les données
+# taux d'apprentissage
+# taux de décroissance de notre learning rate
+# le seuil 
+# les fonctions callback sur les données ou une fois que tout est fini + arrêt dynamique
 
 def run_training(train_batches, test_batches, input_size,
-                 num_epochs=3, learning_rate=0.05, decay_rate=0.95,
+                 num_epochs=50, learning_rate=0.05, decay_rate=0.95,
                  decay_steps=100, threshold_percentile=0.95,
                  on_batch=None, on_epoch=None, on_test_batch=None,
                  on_done=None, should_stop=None):
-
-    # input_size - 2: subtract label column AND dt column
+    
+    # Création du réseau avec le bon nb de flag sans dt et label
     neuron = Neuron(input_size - 2, learning_rate)
     iterations = 0
 
-    # Compute normalization stats once on full training data (excluding dt and label)
+    # Normalisation de toutes les données d'un seul bloc
     all_train = np.concatenate([np.array(b.iloc[:, 1:-1]).astype(float) for b in train_batches], axis=0)
     neuron.fit_normalize(all_train)
     del all_train
 
+    # Entrainment : Calcule la perte et la précision pour chaque itération
     for epoch in range(num_epochs):
+
+        # Préparation d'un arrêt dynamique pour éviter le surapprentissage
         if should_stop and should_stop():
             break
 
         epoch_losses = []
         epoch_accurancy = []
 
-        np.random.shuffle(train_batches)
         for i, df_data in enumerate(train_batches):
             if should_stop and should_stop():
                 break
 
-            x_train = np.array(df_data.iloc[:, 1:-1]).astype(float)  # skip dt (col 0)
+            x_train = np.array(df_data.iloc[:, 1:-1]).astype(float)
             y_train = np.array(df_data.iloc[:, -1]).astype(float)
 
             iterations += 1
@@ -111,8 +123,7 @@ def run_training(train_batches, test_batches, input_size,
             loss = neuron.train_step(x_train, y_train)
             epoch_losses.append(loss)
 
-            x_norm = neuron.normalize(x_train)
-            prediction = (neuron.model(x_norm) > 0.5).astype(int).flatten()
+            prediction = (neuron.model(x_train) > 0.5).astype(int).flatten()
             accuracy = np.mean(prediction == y_train)
             epoch_accurancy.append(accuracy)
 
