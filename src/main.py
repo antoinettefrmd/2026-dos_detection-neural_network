@@ -101,7 +101,7 @@ def run_training(train_batches, test_batches, input_size,
     neuron.fit_normalize(all_train)
     del all_train
 
-    # Entrainment : Calcule la perte et la précision pour chaque itération
+    # Entrainment : Calcule la perte et la précision à chaque itération
     for epoch in range(num_epochs):
 
         # Préparation d'un arrêt dynamique pour éviter le surapprentissage

@@ -8,6 +8,16 @@ class Neuron:
         self.std = None
         self.ret_loss = []
         self.anomaly_threshold = None
+
+        # Initialisation ADAM
+        self.t = 0 # nb d'itération
+        self.beta1 = 0.9 # Taux de décroissance pour l'estimation du premier moment (moyenne mobile)
+        self.beta2 = 0.999 # # Taux de décroissance pour l'estimation du second moment (variance mobile)
+        self.adam_eps = 1e-8
+        self.mW = np.zeros_like(self.W)  # Accumule la direction des gradients (fisrt moment)
+        self.vW = np.zeros_like(self.W) # Mesure la dispersion des gradients (Second moment)
+        self.mb = 0 # Premier moment (moyenne) des gradients pour le biais b
+        self.vb = 0 # Second moment (variance non centrée) des gradients pour le biais b
         
     def sigmoid(self, z):
         return 1 / (1+ np.exp(-np.clip(z, -500, 500))) # prevents overflow
@@ -17,7 +27,6 @@ class Neuron:
         z = entry.dot(self.W)
         z += self.b
         return self.sigmoid(z)
-
     
     # mesure quant bien la prediction des donnes sont arrivées en rapport à le resultat réel
     # plus proches de 0 meilleur la prediction
@@ -38,10 +47,30 @@ class Neuron:
     
     def update(self, dW, db):
         max_grad = 5.0
+        # Limite sur les gradient pour eviter l'explosion des gradients
         dW = np.clip(dW, -max_grad, max_grad)
         db = np.clip(db, -max_grad, max_grad)
-        self.W -= self.lr * dW
-        self.b -= self.lr * db 
+        
+        self.t += 1
+        
+        # Récupération de la direction moyenne en intégrant le gradient courant  
+        self.mW = self.beta1 * self.mW + (1 - self.beta1) * dW
+        self.mb = self.beta1 * self.mb + (1 - self.beta1) * db
+        
+        # Récupération de la dispersion moyenne en intégrant le gradient courant 
+        self.vW = self.beta2 * self.vW + (1 - self.beta2) * (dW ** 2)
+        self.vb = self.beta2 * self.vb + (1 - self.beta2) * (db ** 2)
+        
+        # Réajustement, car au début m et v sont initialisé à 0
+        # Correction en donnant plus de poids aux premiers gradients puis diminution
+        mW_hat = self.mW / (1 - self.beta1 ** self.t)
+        mb_hat = self.mb / (1 - self.beta1 ** self.t)
+        vW_hat = self.vW / (1 - self.beta2 ** self.t)
+        vb_hat = self.vb / (1 - self.beta2 ** self.t)
+        
+        # pas adaptatif = (direction moyenne) / (racine de la variance)
+        self.W -= self.lr * mW_hat / (np.sqrt(vW_hat) + self.adam_eps)
+        self.b -= self.lr * mb_hat / (np.sqrt(vb_hat) + self.adam_eps)
 
     # Normalise toutes les données avant le trainnig pour qu'elle ait plus de sens   
     def fit_normalize(self, X_all):
