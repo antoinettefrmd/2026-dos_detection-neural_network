@@ -74,9 +74,13 @@ TODO
 
 TODO
 [x] Bien justifier vos choix à l'écrit quelque part
-[ ] Faire des choix pertinents et justifiés pour vos données en entrée
+[#] Faire des choix pertinents et justifiés pour vos données en entrée
 
+ 
+# 27/02/2026 Roupin
 
+TODO
+[ ] Déterminer les directions futures possible de votre projet après avoir un réseau fonctionnel, en particulier trouver un problème intéressant d'un point de vu algorithmique
 
 
 
