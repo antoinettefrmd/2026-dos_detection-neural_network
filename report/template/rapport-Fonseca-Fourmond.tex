@@ -1,0 +1,117 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+
+\title{Rapport-Fonseca-Fourmond}
+\author{Antoinette Fourmond, Gabriel Fonseca Rodrigues }
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+Notre binôme développe un algorithme de réseau de neurones simplifié (supervisé puis semi-supervisé) pour détecter des anomalies et tentatives d'intrusion 
+sur un réseau.
+
+Nous avons choisi ce sujet pour apprendre les principes fondateurs de l’intelligence artificielle, qui prend de plus en plus de place dans notre quotidien.
+
+En effet, ce projet a aussi pour but de détecter des patterns définis comme des anomalies par la base de données. On souhaite y ajouter un algorithme de 
+prétraitement de données pour qu’il soit plus précis et/ou rapide.
+
+Pour que ce projet soit considéré comme un succès, notre binôme a posé trois métriques d'évaluations : 
+La première, considère l'efficacité intrinsèque de l'algorithme développé -  c'est-à-dire sa précision à répondre que les données d’entrées sont des anomalies
+définies par la base. Nous considérons que sa valeur doit être supérieure à 95\% pour que ce projet soit réussi. Parallèlement, la perte sera la plus proche 
+possible de zéro même si cette donnée n’est là que pour apporter de la cohérence et non pas une évaluation.
+
+On s'intéresse à la contribution de notre projet pour la communauté scientifique, on souhaite donc comparer la précision de notre algorithme avec celle d'autres
+algorithmes de détection déjà existants.
+
+
+\section{Implémentation}
+Nous avons réalisé notre projet en suivant la méthode SCRUM. En plus des réunions avec vous, les professeurs chaque semaine, on en avait aussi entre nous.
+Chaque tâche de notre projet a été divisée en deux parties : le cadrage puis l’implémentation. Ces sprints nous permettent donc soit de rassembler toutes 
+les idées de la conceptualisation au résultat final de la tâche, soit de réaliser cette dite tâche.
+
+Nous avons codé en langage python, utilisant les librairies "numpy", pour les conversions et le calcul matriciel des données et "pandas", pour le 
+traitement et nettoyage des données d'entraînement et tests et "sklearn.preprocessing", pour l'encodage et normalisation des données de type "Object".
+Le projet est jusqu'à présent divisé sur deux fichier principaux, "main.py" et "protoN.py".
+
+\subsection{Main}
+Ce fichier contient les extractions et traitements des données pour être injectées en entrée sur le réseau de neurones. 
+
+Notre fonction “prepare\_data”, récupère les données .csv pour les mettre dans un DataFrame. On encode les colonnes dont le type est Objet. On retire les
+colonnes dont les données sont arbitraires malgré l’encodage, comme les adresses IP. On a décidé d'entraîner notre modèle sur 75\% des données pour éviter 
+l’overfitting et le testons sur 25\%.
+
+Il est aussi très important de normaliser l'ensemble des données avant l'exécution. On a d’ailleurs eu pendant longtemps des soucis, car on renormalisait à
+chaque mini-bacth de données. Cela avait pour conséquence que les poids appris sur un batch deviennent incohérents sur le suivant. Le modèle ne pouvait pas 
+converger.
+
+"slice\_per\_time" partage les paquets de la base des données en fonction d’une fenêtre de temps changeante dynamiquement. L’objectif est de simuler à notre
+algorithme un apprentissage par flux des données.
+
+
+\subsection{ProtoN}
+
+Notre projet a pour but de réaliser  un algorithme de réseau de neurones simplifié. La classe "Neuron", définit la structure d'un neurone avec ses fonctions
+d'entraînement, d'évaluation, d'activation, de prédiction et d'optimisation. 
+
+La première difficulté rencontrée est qu’on ne connaissait pas beaucoup de concepts de ce domaine. On a dû s'exercer sur des réseaux plus simples comme la 
+classification de plantes toxiques pour voir comment les différents modules fonctionnent eux.
+La fonction d'activation  appelée "sigmoid" donne la probabilité qu’une donnée d'entrée soit une anomalie entre [0-1]. Sa formule est définie comme :
+\( 1/1+e^{-z} \), pour z la sommes des valeurs d'entrées par ses poids plus ses bias \(z = \Sigma(x_i*w_i)+b \).
+
+La fonction d'optimisation, aussi appelée descente de gradient, a comme objectif d'améliorer les futurs calculs du réseau par l'ajustement des poids et du 
+biais. L'ajustement des poids se f: \(w=w- lr*(1/length) * d * (m-y)\) et pour l'ajustement du biais:
+
+\(b=b-lr*(1/length) * \Sigma_i m_i - y_i \),  où $lr$ est défini comme le taux d'apprentissage (learning rate). Le rôle de cette fonction est de minimiser
+l'erreur globale en déplaçant les paramètres du neurone dans la direction opposée au gradient de la fonction de perte.
+
+Un de nos bugs majeurs a été la prédiction. On comparait les probabilités de la sigmoid à un seuil calculé sur les pertes (loss) ce qui bloquait l'accuracy 
+à 50\%. La correction a simplement comparé la sortie à 0.5 : si > 0.5 → anomalie, sinon → normal.
+
+Après avoir implémenté nos fonctions principales et réglé nos bugs énoncés plus haut, la précision de notre modèle était à 72\% .
+
+Nous avons choisi d'implémenter la méthode ADAM (Adaptive Moment Estimation) pour optimiser nos pas. ADAM combine les avantages de deux autres méthodes : 
+elle utilise la moyenne des gradients précédents pour accélérer la descente (comme un élan), et la variance des gradients pour adapter le taux d'apprentissage
+à chaque paramètre. Concrètement, cela permet au neurone d'avancer plus vite dans les directions stables et de ralentir là où les gradients oscillent, tout en
+corrigeant le biais des premières itérations. Résultat : une convergence plus rapide et plus stable qu'une descente de gradient classique. Cela a augmenté la 
+précision de notre modèle à 76.6\%.
+Il est également important de diminuer au maximum le taux de faux négatifs. Sur l’ensemble des données, sans regarder les sous-ensembles (bach), on a 16\% de
+faux positifs et 33\% de faux négatifs.
+
+
+\section{Jalon}
+
+Notre méthodologie SCRUM nous a permis de réaliser nos premiers objectifs dans les temps qu’on s’était donné. En effet, nous avions prévu la fin de l’implémentation
+de notre réseau de neurones à une couche et de la méthode ADAM pour le 19 mars. Ce temps a servi à avoir un prototype solide qui sert de base à nos prochains ajouts.
+
+Premièrement, nous avons pour objectif d’ici mi-mars, que notre modèle ait une précision supérieure à 95\%. La baisse de la perte viendra parallèlement mais elle
+n’est pour nous pas un facteur d’évaluation.  
+
+Un perceptron à un seul neurone ne peut tracer qu'une frontière de décision linéaire. Les patterns d'intrusion réseau impliquent des relations non-linéaires 
+complexes entre débit, nombre de paquets, durée, etc. Pour cette raison, nous envisageons l’ajout d’une ou deux couches cachées avec une activation ReLU. Celle-ci
+rendra notre modèle plus performant par sa capacité à détecter des motifs complexes, en transformant l’espace pour que les combinaisons d’entrées (motifs d'attaque)
+deviennent linéairement séparables. 
+
+Une fois cette première tâche réalisée, nous souhaitons comparer l’accuracy de notre modèle avec celle d’algorithmes de ML supervisés et non supervisés tel 
+qu'Isolation Forest et K-Mean clustering. 
+Parallèlement, nous sommes déjà en train de réfléchir à un algorithme à intégrer à notre réseau. Nous avons plusieurs pistes, comme le prétraitement de données. En 
+effet, les IP étant des données définies arbitrairement, nous ne les prenons pas actuellement en compte. Notre première piste est de les traiter différemment pour 
+qu’elles puissent apporter les informations qu’elles contiennent. 
+
+Comme expliqué dans la partie implémentation, nous avons une fonction "slice\_per\_type" qui découpe les données par tranches de temps. En deuxième piste, on souhaiterait 
+approfondir ce découpage dynamique pour qu’il découpe de manière plus intelligente. 
+
+Une troisième piste serait l’introduction de la Markov Chain.
+
+\begin{center}
+\includegraphics[
+    angle=90,
+    width=\textheight,
+    height=\textwidth,
+    keepaspectratio
+]{image.jpeg}
+\end{center}
+
+\end{document}
