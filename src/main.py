@@ -146,6 +146,8 @@ def run_training(train_batches, test_batches, input_size,
     test_accuracy = []
     test_false_positf = []
     test_false_negatif = []
+    test_false_positf_partial = []
+    test_false_negatif_partial = []
     
     for i, df_batches in enumerate(test_batches):
         if should_stop and should_stop():
@@ -160,13 +162,23 @@ def run_training(train_batches, test_batches, input_size,
         test_accuracy.append(accuracy)
         
         # for testing false positif/negatif
+        total_mistaken = (prediction != y_test)
+        
         negative_mask = y_test == 0
-        false_positive_acc = (prediction[negative_mask] != y_test[negative_mask]).mean()
-        test_false_positf.append(false_positive_acc)
+        false_positive_acc_total = (prediction[negative_mask] != y_test[negative_mask]).mean()
+        test_false_positf.append(false_positive_acc_total)
         
         positive_mask = y_test == 1
-        false_negative_acc = (prediction[positive_mask] != y_test[positive_mask]).mean()
-        test_false_negatif.append(false_negative_acc)
+        false_negative_acc_total = (prediction[positive_mask] != y_test[positive_mask]).mean()
+        test_false_negatif.append(false_negative_acc_total)
+        
+        negative_mask2 = total_mistaken == 0
+        false_positive_acc_partial = (prediction[negative_mask2] != total_mistaken[negative_mask2]).mean()
+        test_false_positf_partial.append(false_positive_acc_partial)
+        
+        positive_mask2 = total_mistaken == 1
+        false_negative_acc_partial = (prediction[positive_mask2] != total_mistaken[positive_mask2]).mean()
+        test_false_negatif_partial.append(false_negative_acc_partial)
         
         if on_test_batch:
             on_test_batch(i, len(test_batches), loss, accuracy)
@@ -175,6 +187,8 @@ def run_training(train_batches, test_batches, input_size,
     avg_test_acc = np.mean(test_accuracy) if test_accuracy else 0
     avg_test_fp = np.mean(test_false_positf) if test_false_positf else 0
     avg_test_fn = np.mean(test_false_negatif) if test_false_negatif else 0
+    avg_test_fpp = np.mean(test_false_positf_partial) if test_false_positf else 0
+    avg_test_fnp = np.mean(test_false_negatif_partial) if test_false_negatif else 0
 
     if on_done:
         on_done(avg_test_loss, avg_test_acc)
@@ -184,8 +198,10 @@ def run_training(train_batches, test_batches, input_size,
         print(f"{'='*60}")
         print(f"Moyenne de test loss: {(avg_test_loss*100):.1f}%")
         print(f"Moyenne de test accuracy: {(avg_test_acc*100):.1f}%")
-        print(f"Moyenne de test false positif: {(avg_test_fp*100):.1f}%")
-        print(f"Moyenne de test false negatif: {(avg_test_fn*100):.1f}%")
+        print(f"Moyenne de test false positif total: {(avg_test_fp*100):.1f}%")
+        print(f"Moyenne de test false negatif total: {(avg_test_fn*100):.1f}%")
+        print(f"Moyenne de test false positif partial: {(avg_test_fpp*100):.1f}%")
+        print(f"Moyenne de test false negatif partial: {(avg_test_fnp*100):.1f}%")
 
 
 if __name__ == '__main__' :
