@@ -144,7 +144,9 @@ def run_training(train_batches, test_batches, input_size,
     # Phase de test
     test_losses = []
     test_accuracy = []
-
+    test_false_positf = []
+    test_false_negatif = []
+    
     for i, df_batches in enumerate(test_batches):
         if should_stop and should_stop():
             break
@@ -156,12 +158,23 @@ def run_training(train_batches, test_batches, input_size,
         accuracy = np.mean(prediction == y_test)
         test_losses.append(loss)
         test_accuracy.append(accuracy)
-
+        
+        # for testing false positif/negatif
+        negative_mask = y_test == 0
+        false_positive_acc = (prediction[negative_mask] != y_test[negative_mask]).mean()
+        test_false_positf.append(false_positive_acc)
+        
+        positive_mask = y_test == 1
+        false_negative_acc = (prediction[positive_mask] != y_test[positive_mask]).mean()
+        test_false_negatif.append(false_negative_acc)
+        
         if on_test_batch:
             on_test_batch(i, len(test_batches), loss, accuracy)
 
     avg_test_loss = np.mean(test_losses) if test_losses else 0
     avg_test_acc = np.mean(test_accuracy) if test_accuracy else 0
+    avg_test_fp = np.mean(test_false_positf) if test_false_positf else 0
+    avg_test_fn = np.mean(test_false_negatif) if test_false_negatif else 0
 
     if on_done:
         on_done(avg_test_loss, avg_test_acc)
@@ -171,6 +184,8 @@ def run_training(train_batches, test_batches, input_size,
         print(f"{'='*60}")
         print(f"Moyenne de test loss: {(avg_test_loss*100):.1f}%")
         print(f"Moyenne de test accuracy: {(avg_test_acc*100):.1f}%")
+        print(f"Moyenne de test false positif: {(avg_test_fp*100):.1f}%")
+        print(f"Moyenne de test false negatif: {(avg_test_fn*100):.1f}%")
 
 
 if __name__ == '__main__' :
