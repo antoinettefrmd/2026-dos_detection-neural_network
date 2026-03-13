@@ -80,15 +80,16 @@ TODO
 # 27/02/2026 Roupin
 
 TODO
-[ ] Déterminer les directions futures possible de votre projet après avoir un réseau fonctionnel, en particulier trouver un problème intéressant d'un point de vu algorithmique
+[ ] Déterminer les directions futures possible de votre projet après
+avoir un réseau fonctionnel, en particulier trouver un problème
+intéressant d'un point de vu algorithmique.
 
 
+# 13/03/2026 Bernardi
 
-
-
-
-
-
+TODOS
+[ ] Write some documentation that explains how to compile/interpret and how to run your software
+[ ] Add a second layer and check the accuracy of the resulting network
 
 
 
