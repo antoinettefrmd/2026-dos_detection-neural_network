@@ -2,6 +2,9 @@ from sklearn.preprocessing import LabelEncoder
 from protoN import Neuron
 import numpy as np
 import pandas as pd
+import sys
+import os
+
 
 # reduit de façon exponentielle le taux d'apprentissage a partir du nombre d'iterations
 def decaying_lr(learning_rate, iteration, decay_rate=0.95, decay_steps=100):
@@ -205,7 +208,16 @@ def run_training(train_batches, test_batches, input_size,
 
 
 if __name__ == '__main__' :
-    train_batches, test_batches, size_input = prepare_data("../dataset_sdn.csv")
+    script_directory = os.getcwd()
+    last = (script_directory.split("/"))[-1]
+    if(last == "src"):
+        path = "../dataset_sdn.csv"
+    elif(last == "fonseca-fourmond-pprog-2025"):
+        path = "./dataset_sdn.csv"
+    else:
+        raise Exception("Invalid path found")
+    
+    train_batches, test_batches, size_input = prepare_data(path)
     print(f"Total des paquets collectées: {len(train_batches)}")
     print(f"Total de paquets de test: {len(test_batches)}")
 
