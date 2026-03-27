@@ -3,13 +3,14 @@ class Neuron:
 
     # Pour choisir la taille des différentes couches on va tester différentes config pour l'instant
     # Trop de neuronnes entraineraot un sur apprentissage 
-    # Mais pas asser entraînerait un sous apprentissage 
+    # Mais pas assez entraînerait un sous apprentissage 
     def __init__(self, input_size, learnig_rate=0.001, hidden_size=32 , l2_lambda=0.001):
         self.lr = learnig_rate
-        # On a décidé de rajouter deux couches pour que notre modèle distingues des patterns complexes pas que linéaires
+        # On a décidé de rajouter une couche pour que notre modèle distingues des patterns complexes pas que linéaires
         # On ne multiplie plus par 0.1 mais par un nombre qui s'adapte à la taille de la couches
         # Meilleure équilibre des poids
         self.l2_lambda = l2_lambda
+
         # Taille de la couche en fonction des inputs, initialisation des poids et du biais 
         self.W1 = np.random.randn(input_size, hidden_size) * np.sqrt(2.0 / input_size)
         self.b1 = np.zeros((1, hidden_size))
@@ -20,7 +21,6 @@ class Neuron:
         self.mean = None
         self.std = None
         self.ret_loss = []
-        self.anomaly_threshold = None
 
         # Initialisation ADAM
         self.t = 0 # nb d'itération
@@ -62,7 +62,7 @@ class Neuron:
 
     # Forward pass du réseau de neurones :
     # applique successivement deux transformations linéaires
-    # la premieière couche utilisent ReLU pour introduire de la non-linéarité,
+    # la première couche utilise ReLU pour introduire de la non-linéarité,
     # La dernière couche applique une sigmoid afin de produire une probabilité en sortie.
     def model(self, entry):
         self.z1 = entry.dot(self.W1) + self.b1
@@ -83,55 +83,44 @@ class Neuron:
         model = np.clip(model, epsilon, 1-epsilon)
         return 1/s * np.sum(-y * np.log(model) - (1-y) * np.log(1-model))
     
-    # mesure et optimise les futures calcules
+    # mesure et optimise les futures calculs
     def gradient(self, model, data, label):
         y = label.reshape(-1,1)
         s = len(y)
-        # Output layer gradients
+
+        # calcul erreur prédiction - vérité
+        # dérivation de loss + signmoid
+        # Le gradient est la dérivée de la loss
         dZ2 = model - y
+
         dW2 = 1/s * np.dot(self.a1.T, dZ2) + self.l2_lambda * self.W2
         db2 = 1/s * np.sum(dZ2, axis=0, keepdims=True)
-        # Hidden layer gradients
+
         dA1 = dZ2.dot(self.W2.T)
+
+        # Correction des neuronnes qui ont servi seulement, les autres morts = pas de correction
         dZ1 = dA1 * self.relu_derivative(self.z1)
+        
         dW1 = 1/s * np.dot(data.T, dZ1) + self.l2_lambda * self.W1
         db1 = 1/s * np.sum(dZ1, axis=0, keepdims=True)
         return {'W1': dW1, 'b1': db1, 'W2': dW2, 'b2': db2}
     
     def update(self, grads):
-        # max_grad = 5.0
-        # # Limite sur les gradients pour eviter l'explosion des gradients
-        # dW = np.clip(dW, -max_grad, max_grad)
-        # db = np.clip(db, -max_grad, max_grad)
-        
-        # self.t += 1
-        
-        # # Récupération de la direction moyenne en intégrant le gradient courant  
-        # self.mW = self.beta1 * self.mW + (1 - self.beta1) * dW
-        # self.mb = self.beta1 * self.mb + (1 - self.beta1) * db
-        
-        # # Récupération de la dispersion moyenne en intégrant le gradient courant 
-        # self.vW = self.beta2 * self.vW + (1 - self.beta2) * (dW ** 2)
-        # self.vb = self.beta2 * self.vb + (1 - self.beta2) * (db ** 2)
-        
-        # # Réajustement, car au début m et v sont initialisé à 0
-        # # Correction en donnant plus de poids aux premiers gradients puis diminution
-        # mW_hat = self.mW / (1 - self.beta1 ** self.t)
-        # mb_hat = self.mb / (1 - self.beta1 ** self.t)
-        # vW_hat = self.vW / (1 - self.beta2 ** self.t)
-        # vb_hat = self.vb / (1 - self.beta2 ** self.t)
-        
-        # # pas adaptatif = (direction moyenne) / (racine de la variance)
-        # self.W -= self.lr * mW_hat / (np.sqrt(vW_hat) + self.adam_eps)
-        # self.b -= self.lr * mb_hat / (np.sqrt(vb_hat) + self.adam_eps)
         self.t += 1
         for name in ['W1', 'b1', 'W2', 'b2']:
+            # Limite sur les gradients pour eviter l'explosion des gradients
             g = np.clip(grads[name], -5.0, 5.0)
+            # Récupération de la direction moyenne en intégrant le gradient courant
             self.m[name] = self.beta1 * self.m[name] + (1 - self.beta1) * g
+            # Récupération de la dispersion moyenne en intégrant le gradient courant
             self.v[name] = self.beta2 * self.v[name] + (1 - self.beta2) * (g ** 2)
+            
+            # Réajustement, car au début m et v sont initialisé à 0
+            # Correction en donnant plus de poids aux premiers gradients puis diminution
             m_hat = self.m[name] / (1 - self.beta1 ** self.t)
             v_hat = self.v[name] / (1 - self.beta2 ** self.t)
             param = getattr(self, name)
+            # pas adaptatif = (direction moyenne) / (racine de la variance)
             param -= self.lr * m_hat / (np.sqrt(v_hat) + self.adam_eps)
             setattr(self, name, param)
 
