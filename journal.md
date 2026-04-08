@@ -49,6 +49,48 @@ The first NN that will be used consists of
 TODO
 [ ] Define the structure of the neural network (i.e. how are the neurons connected)
 [ ] Define how you are going to compare the results of your NN with other algorithms
-[ ] Come back in January with a prototype of a neural network that must be trained
+[x] Come back in January with a prototype of a neural network that must be trained
 	on half of the dataset that you have.
-[ ] Show us a demo.
+[x] Show us a demo.
+
+
+
+# 30/01/2026 Roupin
+
+
+TODO
+[x] Plan clair et précis de ce que vous voulez faire et pourquoi 
+[x] Journal de votre avancée 
+
+ 
+# 06/02/2026 Roupin
+
+
+TODO
+[x] S'assurer que votre algo de descente est correcte avant de prendre du temps sur le reste 
+
+ 
+# 13/02/2026 Roupin
+
+TODO
+[x] Bien justifier vos choix à l'écrit quelque part
+[#] Faire des choix pertinents et justifiés pour vos données en entrée
+
+ 
+# 27/02/2026 Roupin
+
+TODO
+[ ] Déterminer les directions futures possible de votre projet après
+avoir un réseau fonctionnel, en particulier trouver un problème
+intéressant d'un point de vu algorithmique.
+
+
+# 13/03/2026 Bernardi
+
+TODOS
+[ ] Write some documentation that explains how to compile/interpret and how to run your software
+[ ] Add a second layer and check the accuracy of the resulting network
+
+
+
+
