@@ -34,376 +34,286 @@ from sklearn.preprocessing import StandardScaler
 # Detector
 # ---------------------------------------------------------------------------
 
-class TCPAnomalyDetector:
+class KNNDetector:
     """
-    Unsupervised KNN anomaly detector for pre-encoded TCP flow data.
-
-    Expects data already processed by `prepare_data()`:
-      - categorical columns encoded
-      - IP columns dropped
-      - values are numeric
-
+    KNN-based anomaly detector structured like the Neuron class.
+ 
+    Anomaly score = mean distance to the k nearest neighbours in the
+    normalised training set. High score → isolated flow → anomaly.
+ 
     Parameters
     ----------
+    input_size : int
+        Number of features (size_input from prepare_data).
     k : int
-        Number of nearest neighbours used to compute the anomaly score.
+        Number of nearest neighbours.
     contamination : float
-        Expected fraction of anomalies in the dataset (between 0 and 0.5).
-        Determines the decision threshold after fitting.
+        Expected fraction of anomalies — sets the decision threshold.
     metric : str
-        Distance metric for NearestNeighbors ('euclidean', 'manhattan', ...).
+        Distance metric ('euclidean', 'manhattan', …).
     aggregate : {'mean', 'max', 'kth'}
-        How to collapse the k neighbour distances into one score per flow:
-        - 'mean' -> average over all k distances        (robust, recommended)
-        - 'max'  -> worst-case distance                 (sensitive to extremes)
-        - 'kth'  -> distance to the k-th neighbour only (classic LOF-style)
+        How to collapse k distances into one score per flow.
     """
-
-    def __init__(self,k=7,contamination=0.05,metric="euclidean",aggregate="mean",):
-        if not (0 < contamination < 0.5):
-            raise ValueError("`contamination` must be in (0, 0.5).")
-        if aggregate not in ("mean", "max", "kth"):
-            raise ValueError("`aggregate` must be 'mean', 'max', or 'kth'.")
-
-        self.k = k
-        self.contamination = contamination
-        self.metric = metric
-        self.aggregate = aggregate
-
-        # Internals — populated by fit_batches()
-        self._scaler = StandardScaler()
-        self._nn = NearestNeighbors(n_neighbors=k, metric=metric, n_jobs=-1)
-        self.threshold_ = 0.0
-        self.feature_names_: list[str]   = []
-        self._is_fitted : bool = False
-
-        # Diagnostics filled after fit
-        self.n_train_samples_ = 0.0
-        self.n_train_batches_ = 0.0
-        self.train_score_mean_ = 0.0
-        self.train_score_std_ = 0.0
-
-    # ------------------------------------------------------------------
-    # Fitting
-    # ------------------------------------------------------------------
-
-    def fit_batches(self, train_batches: list[pd.DataFrame]) -> "TCPAnomalyDetector":
-        """
-        Fit the detector on training batches produced by `prepare_data()`.
-
-        Step 1 - Incremental scaler fitting (one pass, no memory blow-up).
-        Step 2 - Accumulate all scaled vectors.
-        Step 3 - Fit NearestNeighbors index on the full scaled matrix.
-        Step 4 - Score every training point to calibrate the threshold.
-
-        Parameters
-        ----------
-        train_batches : list[pd.DataFrame]
-            Each DataFrame is one batch of pre-encoded TCP flows.
-
-        Returns
-        -------
-        self
-        """
-        if not train_batches:
-            raise ValueError("train_batches is empty.")
-
-        self.feature_names_   = list(train_batches[0].columns)
-        self.n_train_batches_ = len(train_batches)
-
-        # Pass 1: fit the scaler incrementally (no full concatenation needed)
-        for batch in train_batches:
-            self._scaler.partial_fit(self._to_array(batch))
-
-        # Pass 2: scale each batch and accumulate
-        scaled_chunks: list[np.ndarray] = []
-        for batch in train_batches:
-            scaled_chunks.append(self._scaler.transform(self._to_array(batch)))
-
-        X_train_scaled        = np.vstack(scaled_chunks)
-        self.n_train_samples_ = len(X_train_scaled)
-
-        # Pass 3: build the KNN index
-        self._nn.fit(X_train_scaled)
-
-        # Pass 4: score every training point to set the anomaly threshold
-        distances, _          = self._nn.kneighbors(X_train_scaled)
-        train_scores          = self._aggregate_distances(distances)
-
-        self.train_score_mean_ = float(train_scores.mean())
-        self.train_score_std_  = float(train_scores.std())
-        # Threshold = (1 - contamination) quantile of training scores
-        self.threshold_        = float(np.quantile(train_scores, 1.0 - self.contamination))
-
-        self._is_fitted = True
-        return self
-
-    # ------------------------------------------------------------------
-    # Scoring / prediction — batch-level
-    # ------------------------------------------------------------------
-
-    def score_batches(self, batches: list[pd.DataFrame]) -> list[np.ndarray]:
-        """
-        Return anomaly scores for every flow in every batch.
-
-        Parameters
-        ----------
-        batches : list[pd.DataFrame]
-            Test batches from `prepare_data()`.
-
-        Returns
-        -------
-        list of np.ndarray, one score array per batch.
-        Higher scores indicate more anomalous flows.
-        """
-        self._check_fitted()
-        return [self._score_array(self._to_array(b)) for b in batches]
-
-    def predict_batches(self, batches: list[pd.DataFrame]) -> list[np.ndarray]:
-        """
-        Predict labels for each batch.
-
-        Returns
-        -------
-        list of np.ndarray with values +1 (normal) or -1 (anomaly).
-        """
-        return [
-            np.where(scores > self.threshold_, -1, 1)
-            for scores in self.score_batches(batches)
-        ]
-
-    def detect_batches(self, batches: list[pd.DataFrame]) -> pd.DataFrame:
-        """
-        Full detection report across all test batches.
-
-        Concatenates results from every batch into a single DataFrame.
-        A `batch_idx` column tracks which batch each row came from,
-        making it easy to trace anomalies back to their original subset.
-
-        Returns
-        -------
-        pd.DataFrame with all original feature columns plus:
-            batch_idx     - index of the source batch
-            anomaly_score - KNN distance score (higher = more suspicious)
-            is_anomaly    - True when score > threshold
-            severity      - 'low' | 'medium' | 'high' | 'critical'
-        """
-        self._check_fitted()
-        frames: list[pd.DataFrame] = []
-
-        for batch_idx, (batch, scores) in enumerate(
-            zip(batches, self.score_batches(batches))
-        ):
-            result                  = batch.copy()
-            result["batch_idx"]     = batch_idx
-            result["anomaly_score"] = scores
-            result["is_anomaly"]    = scores > self.threshold_
-            result["severity"]      = self._severity(scores)
-            frames.append(result)
-
-        return pd.concat(frames, ignore_index=True)
-
-    # ------------------------------------------------------------------
-    # Evaluation (when ground-truth labels are available)
-    # ------------------------------------------------------------------
-
-    def evaluate_batches(
+ 
+    def __init__(
         self,
-        batches: list[pd.DataFrame],
-        true_labels: list[np.ndarray] | None = None,
-    ) -> dict:
+        input_size   : int,
+        k            : int   = 7,
+        contamination: float = 0.05,
+        metric       : str   = "euclidean",
+        aggregate    : str   = "mean",
+    ) -> None:
+        self.input_size    = input_size
+        self.k             = k
+        self.contamination = contamination
+        self.metric        = metric
+        self.aggregate     = aggregate
+ 
+        # Normalisation state — populated by fit_normalize()
+        self.mean: np.ndarray | None = None
+        self.std : np.ndarray | None = None
+ 
+        # Loss history (mirrors Neuron.ret_loss)
+        self.ret_loss: list[float] = []
+ 
+        # Decision threshold calibrated during train_step
+        self.threshold_: float | None = None
+ 
+        # Internal model and accumulated training data
+        self._init_model()
+ 
+    # ------------------------------------------------------------------
+    # Initialisation (mirrors Neuron._init_adam)
+    # ------------------------------------------------------------------
+ 
+    def _init_model(self) -> None:
+        """Initialise the KNN index and the training data buffer."""
+        self._nn           = NearestNeighbors(
+            n_neighbors = self.k,
+            metric      = self.metric,
+            n_jobs      = -1,
+        )
+        self._X_train      : list[np.ndarray] = []   # scaled chunks
+        self._is_fitted    : bool             = False
+        self._n_train_seen : int              = 0
+ 
+    # ------------------------------------------------------------------
+    # Normalisation (mirrors Neuron.fit_normalize / normalize)
+    # ------------------------------------------------------------------
+ 
+    def fit_normalize(self, X_all: np.ndarray) -> None:
         """
-        Aggregate detection metrics across all test batches.
-
+        Compute and store mean/std from the full training matrix.
+        Call once before the train_step loop.
+ 
         Parameters
         ----------
-        batches : list[pd.DataFrame]
-        true_labels : list[np.ndarray], optional
-            Each array must contain +1 (normal) / -1 (anomaly) aligned with
-            the rows of the corresponding batch.  When omitted, only score
-            statistics are returned.
-
+        X_all : np.ndarray  shape (n_samples, input_size)
+            Concatenation of all training batches.
+        """
+        self.mean = np.mean(X_all, axis=0)
+        self.std  = np.std (X_all, axis=0)
+ 
+    def normalize(self, input_data: np.ndarray) -> np.ndarray:
+        """
+        Normalise input_data with stored statistics.
+        If fit_normalize was never called, fits on the fly (mirrors Neuron).
+        """
+        if self.mean is None or self.std is None:
+            self.mean = np.mean(input_data, axis=0)
+            self.std  = np.std (input_data, axis=0)
+        return (input_data - self.mean) / (self.std + 1e-8)
+ 
+    # ------------------------------------------------------------------
+    # Core model (mirrors Neuron.model)
+    # ------------------------------------------------------------------
+ 
+    def model(self, entry: np.ndarray) -> np.ndarray:
+        """
+        Forward pass: compute the KNN anomaly score for each row.
+ 
+        Parameters
+        ----------
+        entry : np.ndarray  shape (n_samples, input_size) — already normalised
+ 
         Returns
         -------
-        dict with keys:
-            n_flows, n_anomalies, anomaly_rate, score_mean, score_std,
-            score_max, threshold
-            (+ tp, fp, fn, tn, precision, recall, f1 when labels given)
+        scores : np.ndarray  shape (n_samples, 1)
+            Higher values → more anomalous (mirrors Neuron's sigmoid output shape).
         """
-        self._check_fitted()
-
-        all_scores    = np.concatenate(self.score_batches(batches))
-        all_predicted = np.where(all_scores > self.threshold_, -1, 1)
-        n_total       = len(all_scores)
-        n_flagged     = int((all_predicted == -1).sum())
-
-        metrics = {
-            "n_flows"      : n_total,
-            "n_anomalies"  : n_flagged,
-            "anomaly_rate" : round(n_flagged / max(n_total, 1), 4),
-            "score_mean"   : round(float(all_scores.mean()), 6),
-            "score_std"    : round(float(all_scores.std()),  6),
-            "score_max"    : round(float(all_scores.max()),  6),
-            "threshold"    : self.threshold_,
-        }
-
-        if true_labels is not None:
-            all_true  = np.concatenate(true_labels)
-            tp = int(((all_predicted == -1) & (all_true == -1)).sum())
-            fp = int(((all_predicted == -1) & (all_true ==  1)).sum())
-            fn = int(((all_predicted ==  1) & (all_true == -1)).sum())
-            tn = int(((all_predicted ==  1) & (all_true ==  1)).sum())
-            precision = tp / (tp + fp + 1e-9)
-            recall    = tp / (tp + fn + 1e-9)
-            f1        = 2 * precision * recall / (precision + recall + 1e-9)
-            metrics.update({
-                "tp"       : tp,
-                "fp"       : fp,
-                "fn"       : fn,
-                "tn"       : tn,
-                "precision": round(precision, 4),
-                "recall"   : round(recall,    4),
-                "f1"       : round(f1,        4),
-            })
-
-        return metrics
-
+        if not self._is_fitted:
+            raise RuntimeError("Call train_step() at least once before model().")
+        distances, _ = self._nn.kneighbors(entry)
+        scores       = self._aggregate(distances)
+        return scores.reshape(-1, 1)
+ 
     # ------------------------------------------------------------------
-    # Single-flow convenience (useful in live / streaming pipelines)
+    # Loss (mirrors Neuron.log_loss)
     # ------------------------------------------------------------------
-
-    def score_flow(self, flow: pd.Series | dict) -> float:
-        """Score a single TCP flow record. Returns its anomaly score."""
-        df = pd.DataFrame([flow])
-        return float(self._score_array(self._to_array(df))[0])
-
-    def predict_flow(self, flow: pd.Series | dict) -> int:
-        """Return +1 (normal) or -1 (anomaly) for a single TCP flow."""
-        return -1 if self.score_flow(flow) > self.threshold_ else 1
-
-    # ------------------------------------------------------------------
-    # Threshold management
-    # ------------------------------------------------------------------
-
-    def set_threshold(self, threshold: float) -> "TCPAnomalyDetector":
-        """Manually override the auto-calibrated decision threshold."""
-        self._check_fitted()
-        self.threshold_ = float(threshold)
-        return self
-
-    def recalibrate_threshold(self, contamination: float) -> "TCPAnomalyDetector":
+ 
+    def anomaly_loss(self, scores: np.ndarray, label: np.ndarray) -> float:
         """
-        Re-derive the threshold from a different contamination rate without
-        re-fitting the model (uses stored training score statistics).
+        Batch anomaly loss.
+ 
+        When ground-truth labels (+1 normal / -1 anomaly) are available,
+        returns the binary cross-entropy between the normalised score
+        probability and the true label.
+        When labels are all zeros / unknown, falls back to the mean score.
+ 
+        Parameters
+        ----------
+        scores : np.ndarray  shape (n_samples, 1)  — output of model()
+        label  : np.ndarray  shape (n_samples,)    — +1 normal / -1 anomaly
+ 
+        Returns
+        -------
+        float  (lower = predictions agree with labels or flows are normal)
         """
-        self._check_fitted()
-        if not (0 < contamination < 0.5):
-            raise ValueError("`contamination` must be in (0, 0.5).")
-        z = _normal_quantile(1.0 - contamination)
-        self.threshold_    = self.train_score_mean_ + z * self.train_score_std_
-        self.contamination = contamination
-        return self
-
+        y = ((label == -1).astype(float)).reshape(-1, 1)   # 1 = anomaly
+ 
+        if y.sum() == 0 and (y == 0).all():
+            # No label info → use mean anomaly score as proxy loss
+            return float(scores.mean())
+ 
+        # Normalise scores to [0, 1] for a cross-entropy interpretation
+        s_min, s_max = scores.min(), scores.max()
+        p = (scores - s_min) / (s_max - s_min + 1e-8)
+        epsilon = 1e-15
+        p = np.clip(p, epsilon, 1 - epsilon)
+        return float(np.mean(-y * np.log(p) - (1 - y) * np.log(1 - p)))
+ 
     # ------------------------------------------------------------------
-    # Introspection
+    # Update (mirrors Neuron.update)
     # ------------------------------------------------------------------
-
-    def summary(self) -> dict:
-        """Return a human-readable summary of the fitted detector."""
-        self._check_fitted()
-        return {
-            "k"               : self.k,
-            "contamination"   : self.contamination,
-            "metric"          : self.metric,
-            "aggregate"       : self.aggregate,
-            "threshold"       : round(self.threshold_, 6),
-            "n_train_samples" : self.n_train_samples_,
-            "n_train_batches" : self.n_train_batches_,
-            "train_score_mean": round(self.train_score_mean_, 6),
-            "train_score_std" : round(self.train_score_std_,  6),
-            "n_features"      : len(self.feature_names_),
-            "features"        : self.feature_names_,
-        }
-
+ 
+    def update(self, entry_scaled: np.ndarray) -> None:
+        """
+        Accumulate the new batch of scaled vectors and refit the KNN index.
+ 
+        For KNN there are no gradient steps — "updating" means extending
+        the reference set and rebuilding the index (the KNN equivalent of
+        a weight update step).
+ 
+        Parameters
+        ----------
+        entry_scaled : np.ndarray  shape (n_samples, input_size)
+        """
+        self._X_train.append(entry_scaled)
+        X_all = np.vstack(self._X_train)
+        self._nn.fit(X_all)
+        self._n_train_seen += len(entry_scaled)
+        self._is_fitted     = True
+ 
+        # Recalibrate threshold on the full accumulated training set
+        distances, _    = self._nn.kneighbors(X_all)
+        train_scores    = self._aggregate(distances)
+        self.threshold_ = float(np.quantile(train_scores, 1.0 - self.contamination))
+ 
+    # ------------------------------------------------------------------
+    # Train step (mirrors Neuron.train_step)
+    # ------------------------------------------------------------------
+ 
+    def train_step(
+        self,
+        input : np.ndarray | pd.DataFrame,
+        label : np.ndarray,
+        function=None,
+    ) -> float:
+        """
+        Process one training batch.
+ 
+        Applies the optional transform, normalises, updates the KNN index,
+        computes the batch anomaly loss, and appends it to ret_loss.
+ 
+        Parameters
+        ----------
+        input    : array-like  shape (batch_size, input_size)
+        label    : np.ndarray  shape (batch_size,)  +1 normal / -1 anomaly
+        function : callable | None  — optional feature transform (like Neuron)
+ 
+        Returns
+        -------
+        float  batch anomaly loss
+        """
+        data = function(input) if function is not None else input
+        data = self._to_array(data)
+        data = self.normalize(data)
+ 
+        self.update(data)                       # extend index + recalibrate
+ 
+        scores = self.model(data)               # score the batch itself
+        loss   = self.anomaly_loss(scores, label)
+        self.ret_loss.append(loss)
+ 
+        return loss
+ 
+    # ------------------------------------------------------------------
+    # Score / evaluation (mirrors Neuron.score_test)
+    # ------------------------------------------------------------------
+ 
+    def score_test(
+        self,
+        input : np.ndarray | pd.DataFrame,
+        label : np.ndarray,
+        function=None,
+    ) -> tuple[float, np.ndarray]:
+        """
+        Evaluate one test batch.
+ 
+        Parameters
+        ----------
+        input    : array-like  shape (batch_size, input_size)
+        label    : np.ndarray  shape (batch_size,)  +1 normal / -1 anomaly
+        function : callable | None
+ 
+        Returns
+        -------
+        loss        : float
+        prediction  : np.ndarray  shape (batch_size,)  — +1 normal / -1 anomaly
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Call train_step() at least once before score_test().")
+ 
+        data = function(input) if function is not None else input
+        data = self._to_array(data)
+        data = self.normalize(data)
+ 
+        scores     = self.model(data)
+        loss       = self.anomaly_loss(scores, label)
+        prediction = np.where(scores.flatten() > self.threshold_, -1, 1)
+ 
+        return loss, prediction
+ 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
-
-    def _to_array(self, batch: pd.DataFrame) -> np.ndarray:
-        return batch.values.astype(np.float64)
-
-    def _score_array(self, X_raw: np.ndarray) -> np.ndarray:
-        X_scaled   = self._scaler.transform(X_raw)
-        distances, _ = self._nn.kneighbors(X_scaled)
-        return self._aggregate_distances(distances)
-
-    def _aggregate_distances(self, distances: np.ndarray) -> np.ndarray:
+ 
+    def _to_array(self, x) -> np.ndarray:
+        if isinstance(x, pd.DataFrame):
+            return x.values.astype(np.float64)
+        return np.asarray(x, dtype=np.float64)
+ 
+    def _aggregate(self, distances: np.ndarray) -> np.ndarray:
+        """Collapse (n, k) distance matrix → (n,) score."""
         if self.aggregate == "mean":
             return distances.mean(axis=1)
         if self.aggregate == "max":
             return distances.max(axis=1)
         return distances[:, -1]   # 'kth'
-
-    def _severity(self, scores: np.ndarray) -> pd.Categorical:
-        """Bucket scores into four severity levels relative to the threshold."""
-        ratio = scores / (self.threshold_ + 1e-9)
-        return pd.cut(
-            ratio,
-            bins=[-np.inf, 0.5, 1.0, 1.5, np.inf],
-            labels=["low", "medium", "high", "critical"],
-        )
-
-    def _check_fitted(self) -> None:
-        if not self._is_fitted:
-            raise RuntimeError(
-                "Detector is not fitted yet — call fit_batches() first."
-            )
-
-
-# ---------------------------------------------------------------------------
-# Utility: approximate normal quantile (no scipy dependency)
-# ---------------------------------------------------------------------------
-
-def _normal_quantile(p: float) -> float:
-    """Rational approximation of the p-th quantile of N(0,1)."""
-    import math
-    c = [-7.784894002430293e-03, -3.223964580411365e-01,
-         -2.400758277161838e+00, -2.549732539343734e+00,
-          4.374664141464968e+00,  2.938163982698783e+00]
-    d = [ 7.784695709041462e-03,  3.224671290700398e-01,
-          2.445134137142996e+00,  3.754408661907416e+00]
-    p_lo, p_hi = 0.02425, 1 - 0.02425
-    if p < p_lo:
-        q = math.sqrt(-2 * math.log(p))
-        return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
-               ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
-    q = p - 0.5; r = q * q
-    a = [0, -3.969683028665376e+01,  2.209460984245205e+02,
-         -2.759285104469687e+02,  1.383577518672690e+02,
-         -3.066479806614716e+01,  2.506628277459239e+00]
-    b = [0, -5.447609879822406e+01,  1.615858368580409e+02,
-         -1.556989798598866e+02,  6.680131188771972e+01, -1.328068155288572e+01]
-    return (((((a[1]*r+a[2])*r+a[3])*r+a[4])*r+a[5])*r+a[6])*q / \
-           (((((b[1]*r+b[2])*r+b[3])*r+b[4])*r+b[5])*r+1)
-
-
-# ---------------------------------------------------------------------------
-# Demo — mirrors what prepare_data() produces (no CSV needed)
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
+    
+if __name__ == '__main__':
     np.random.seed(42)
-
-    N_FEATURES = 18   # typical size_input after encoding + IP drop
+ 
+    N_FEATURES = 18
     COLS       = [f"feature_{i}" for i in range(N_FEATURES)]
-
+ 
+    # ── Simulate prepare_data() ───────────────────────────────────────────
     def _make_flows(n: int, anomalous: bool = False) -> np.ndarray:
         if not anomalous:
             return np.random.randn(n, N_FEATURES)
-        # Anomalous: shifted far from the normal cluster
-        shift = np.random.uniform(8, 15, N_FEATURES) * np.random.choice([-1,1], N_FEATURES)
+        shift = np.random.uniform(8, 15, N_FEATURES) * np.random.choice([-1, 1], N_FEATURES)
         return np.random.randn(n, N_FEATURES) * 0.3 + shift
-
+ 
     def _make_batches(n: int, batch_size: int, anom_frac: float = 0.0):
         n_anom = int(n * anom_frac)
         data   = np.vstack([_make_flows(n - n_anom), _make_flows(n_anom, True)])
@@ -415,40 +325,46 @@ if __name__ == "__main__":
             batches.append(pd.DataFrame(data[s:s+batch_size], columns=COLS))
             lbl_batches.append(labels[s:s+batch_size])
         return batches, lbl_batches
-
-    # Mirrors prepare_data(): 75 % train, 25 % test, ~200 batches
+ 
     BATCH = 50
-    train_batches, _           = _make_batches(2000, BATCH, anom_frac=0.0)
-    test_batches,  test_labels = _make_batches( 600, BATCH, anom_frac=0.08)
-
-    # ── Fit ───────────────────────────────────────────────────────────────
-    detector = TCPAnomalyDetector(k=7, contamination=0.05, aggregate="mean")
-    detector.fit_batches(train_batches)
-
-    # ── Summary ───────────────────────────────────────────────────────────
+    train_batches, train_labels = _make_batches(500, BATCH, anom_frac=0.0)
+    test_batches,  test_labels  = _make_batches(200, BATCH, anom_frac=0.08)
+ 
+    # ── Precompute full training matrix for fit_normalize ────────────────
+    X_all = np.vstack([b.values for b in train_batches])
+    # All labels unknown during training (unsupervised)
+    dummy_labels = np.ones(BATCH)
+ 
+    # ─────────────────────────────────────────────────────────────────────
+    # KNN Detector
+    # ─────────────────────────────────────────────────────────────────────
     print("=" * 60)
-    print("  TCP KNN Anomaly Detector — batch-aware demo")
+    print("  KNN Detector")
     print("=" * 60)
-    for key, val in detector.summary().items():
-        if key != "features":
-            print(f"  {key:<24}: {val}")
-
-    # ── Evaluate ──────────────────────────────────────────────────────────
-    metrics = detector.evaluate_batches(test_batches, true_labels=test_labels)
-    print("\nEvaluation on test batches:")
-    for key, val in metrics.items():
-        print(f"  {key:<16}: {val}")
-
-    # ── detect_batches ────────────────────────────────────────────────────
-    report    = detector.detect_batches(test_batches)
-    anomalies = report[report["is_anomaly"]]
-    print(f"\nFlagged {len(anomalies)} flows across {len(test_batches)} batches.")
-    print("Severity breakdown:")
-    print(anomalies["severity"].value_counts().to_string())
-
-    # ── Single-flow check ─────────────────────────────────────────────────
-    flow   = test_batches[0].iloc[0]
-    score  = detector.score_flow(flow)
-    label  = detector.predict_flow(flow)
-    status = "ANOMALY" if label == -1 else "normal"
-    print(f"\nSingle-flow → score={score:.4f}  [{status}]")
+ 
+    knn = KNNDetector(input_size=N_FEATURES, k=7, contamination=0.05)
+    knn.fit_normalize(X_all)
+ 
+    for batch, lbl in zip(train_batches, train_labels):
+        knn.train_step(batch, dummy_labels)
+ 
+    print(f"  Training loss curve (last 5): {[round(l,4) for l in knn.ret_loss[-5:]]}")
+ 
+    all_preds, all_true = [], []
+    for batch, lbl in zip(test_batches, test_labels):
+        loss, preds = knn.score_test(batch, lbl)
+        all_preds.append(preds)
+        all_true.append(lbl)
+ 
+    all_preds = np.concatenate(all_preds)
+    all_true  = np.concatenate(all_true)
+ 
+    tp = int(((all_preds == -1) & (all_true == -1)).sum())
+    fp = int(((all_preds == -1) & (all_true ==  1)).sum())
+    fn = int(((all_preds ==  1) & (all_true == -1)).sum())
+    tn = int(((all_preds ==  1) & (all_true ==  1)).sum())
+    precision = tp / (tp + fp + 1e-9)
+    recall    = tp / (tp + fn + 1e-9)
+    f1        = 2 * precision * recall / (precision + recall + 1e-9)
+    print(f"  TP={tp} FP={fp} FN={fn} TN={tn}")
+    print(f"  Precision={precision:.2f}  Recall={recall:.2f}  F1={f1:.2f}")
