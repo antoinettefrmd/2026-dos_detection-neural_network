@@ -71,7 +71,7 @@ class KNNDetector:
  
         # Normalisation state — populated by fit_normalize()
         self.mean: np.ndarray | None = None
-        self.std : np.ndarray | None = None
+        self.std = 0.0
  
         # Loss history (mirrors Neuron.ret_loss)
         self.ret_loss: list[float] = []

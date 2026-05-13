@@ -73,9 +73,9 @@ class IsolationForestDetector:
  
         # Normalisation state — populated by fit_normalize()
         self.mean: np.ndarray | None = None
-        self.std : np.ndarray | None = None
+        self.std  = 0.0
  
-        # Loss history (mirrors Neuron.ret_loss)
+        # Loss history
         self.ret_loss: list[float] = []
  
         # Threshold synced with model.offset_ after each update
@@ -85,7 +85,7 @@ class IsolationForestDetector:
         self._init_model()
  
     # ------------------------------------------------------------------
-    # Initialisation (mirrors Neuron._init_adam)
+    # Initialisation
     # ------------------------------------------------------------------
  
     def _init_model(self) -> None:
@@ -99,13 +99,10 @@ class IsolationForestDetector:
             n_jobs        = -1,
         )
         self._X_train   : list[np.ndarray] = []
-        self._is_fitted : bool             = False
-        self._n_train_seen: int            = 0
+        self._is_fitted = False
+        self._n_train_seen = 0
  
-    # ------------------------------------------------------------------
-    # Normalisation (mirrors Neuron.fit_normalize / normalize)
-    # ------------------------------------------------------------------
- 
+    
     def fit_normalize(self, X_all: np.ndarray) -> None:
         """
         Compute and store mean/std from the full training matrix.
@@ -128,10 +125,7 @@ class IsolationForestDetector:
             self.std  = np.std (input_data, axis=0)
         return (input_data - self.mean) / (self.std + 1e-8)
  
-    # ------------------------------------------------------------------
-    # Core model (mirrors Neuron.model)
-    # ------------------------------------------------------------------
- 
+
     def model(self, entry: np.ndarray) -> np.ndarray:
         """
         Forward pass: compute the Isolation Forest anomaly score per row.
@@ -152,10 +146,7 @@ class IsolationForestDetector:
         scores = self._model.score_samples(entry)   # shape (n,) lower = anomaly
         return scores.reshape(-1, 1)
  
-    # ------------------------------------------------------------------
-    # Loss (mirrors Neuron.log_loss)
-    # ------------------------------------------------------------------
- 
+    
     def anomaly_loss(self, scores: np.ndarray, label: np.ndarray) -> float:
         """
         Batch anomaly loss.
@@ -186,10 +177,7 @@ class IsolationForestDetector:
         p = np.clip(p, epsilon, 1 - epsilon)
         return float(np.mean(-y * np.log(p) - (1 - y) * np.log(1 - p)))
  
-    # ------------------------------------------------------------------
-    # Update (mirrors Neuron.update)
-    # ------------------------------------------------------------------
- 
+    
     def update(self, entry_scaled: np.ndarray) -> None:
         """
         Accumulate the new batch of scaled vectors and refit the forest.
@@ -209,10 +197,7 @@ class IsolationForestDetector:
         self._is_fitted     = True
         self.threshold_     = float(self._model.offset_)
  
-    # ------------------------------------------------------------------
-    # Train step (mirrors Neuron.train_step)
-    # ------------------------------------------------------------------
- 
+    
     def train_step(
         self,
         input : np.ndarray | pd.DataFrame,
@@ -247,10 +232,7 @@ class IsolationForestDetector:
  
         return loss
  
-    # ------------------------------------------------------------------
-    # Score / evaluation (mirrors Neuron.score_test)
-    # ------------------------------------------------------------------
- 
+    
     def score_test(
         self,
         input : np.ndarray | pd.DataFrame,
@@ -295,7 +277,7 @@ class IsolationForestDetector:
  
  
 # ═══════════════════════════════════════════════════════════════════════════
-# Demo — mirrors prepare_data() output without needing a CSV
+# Demo
 # ═══════════════════════════════════════════════════════════════════════════
  
 if __name__ == "__main__":
