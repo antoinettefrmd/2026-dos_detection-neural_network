@@ -205,10 +205,16 @@ class KNNDetector:
         self._is_fitted     = True
  
         # Recalibrate threshold on the full accumulated training set
-        distances, _    = self._nn.kneighbors(X_all)
+        N = len(X_all)
+        sample_size = min(N, 2000)
+        if sample_size < N:
+            idx = np.random.default_rng(0).choice(N, sample_size, replace=False)
+            sample = X_all[idx]
+        else:
+            sample = X_all
+        distances, _    = self._nn.kneighbors(sample)
         train_scores    = self._aggregate(distances)
         self.threshold_ = float(np.quantile(train_scores, 1.0 - self.contamination))
- 
     # ------------------------------------------------------------------
     # Train step (mirrors Neuron.train_step)
     # ------------------------------------------------------------------

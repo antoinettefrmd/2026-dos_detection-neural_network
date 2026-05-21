@@ -192,11 +192,18 @@ class IsolationForestDetector:
         """
         self._X_train.append(entry_scaled)
         X_all = np.vstack(self._X_train)
-        self._model.fit(X_all)
         self._n_train_seen += len(entry_scaled)
-        self._is_fitted     = True
-        self.threshold_     = float(self._model.offset_)
- 
+        
+        fit_cap = 4096
+        if len(X_all) > fit_cap:
+            idx = np.random.default_rng(0).choice(len(X_all), fit_cap, replace=False)
+            fit_data = X_all[idx]
+        else:
+            fit_data = X_all
+
+        self._model.fit(fit_data)
+        self._is_fitted = True
+        self.threshold_ = float(self._model.offset_)
     
     def train_step(
         self,
