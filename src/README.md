@@ -1,7 +1,12 @@
 # Configuration et execution du projet
 
-Ce a fichier a comme objective expliquer le fonctionement et les prérequis nécessaire pour 
+Ce a fichier a comme objective expliquer le fonctionement et les prérequis nécessaire pour
 l'interpretation et executer du fichier principal "main.py" vous aurez besoin:
+
+## Avis
+
+A cause des certain dependences et libraries, ce logiciel n'est pas executable que sur le
+système operationel Windows.
 
 ## 1. Prérequis
 
@@ -19,16 +24,17 @@ Les fichier principales ('main.py') et ('Proton.py') dépends de les bibliothéq
 - pandas
 - numpy
 - scikit-learn
+- matplot
 
 Pour les installez, éxecutez la commande suivante:
 
 ```bash
-pip install (pandas, numpy, scikit-learn)
+pip install (pandas, numpy, scikit-learn, matplot)
 ```
 
 ## 2.Éxecution
 
-Après avoir installés les dépendances, pour éxecuter le fichier ('main.py'), il suffit d'éxecuter la 
+Après avoir installés les dépendances, pour éxecuter le fichier ('main.py'), il suffit d'éxecuter la
 commande :
 
 ```bash
